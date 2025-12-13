@@ -1,0 +1,7 @@
+﻿C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\types\menuTypes.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\types\supabase.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\utils\getInitials.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\utils\i18n.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\utils\string.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\utils\supabase-server.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\utils\supabase.ts

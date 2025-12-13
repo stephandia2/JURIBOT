@@ -147,17 +147,17 @@ const Register = ({ mode }: { mode: SystemMode }) => {
               } else {
                 setSuccess('Inscription réussie ! Vérifiez votre email pour confirmer.')
                 // Optionally redirect or wait
-                // router.push('/login') 
+                // router.push('/login')
               }
             }}
             className='flex flex-col gap-5'
           >
-             {error && (
+            {error && (
               <Typography color='error' className='text-center'>
                 {error}
               </Typography>
             )}
-             {success && (
+            {success && (
               <Typography color='primary' className='text-center'>
                 {success}
               </Typography>

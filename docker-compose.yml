@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  juribot:
+    container_name: juribot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      # Add other environment variables here if needed, e.g. from .env
+      # - NEXT_PUBLIC_SUPABASE_URL=...
+      # - NEXT_PUBLIC_SUPABASE_ANON_KEY=...

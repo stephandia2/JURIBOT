@@ -2,30 +2,28 @@
 
 // React Imports
 import { useState, useEffect } from 'react'
+import type { ChangeEvent } from 'react'
 
 // MUI Imports
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/Grid2'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import TextField from '@mui/material/TextField'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
-import Chip from '@mui/material/Chip'
+import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
 
-// Third-party Imports
-import { useForm, Controller } from 'react-hook-form'
+// Component Imports
+import CustomTextField from '@core/components/mui/TextField'
 
-// Type Imports
-import type { SelectChangeEvent } from '@mui/material/Select'
+// Supabase Imports
+import { createClient } from '@/utils/supabase'
+import type { User } from '@supabase/supabase-js'
 
-// Utils Imports
-import { createClient } from '@/utils/supabase/client'
-import { useLanguage } from '@/contexts/LanguageContext' // Import du contexte de langue
+// Context Imports
+import { useLanguage } from '@/contexts/LanguageContext'
 
 type Data = {
   firstName: string
@@ -37,11 +35,12 @@ type Data = {
   state: string
   zipCode: string
   country: string
-  language: string
+  language: string // Changed to single string
   timezone: string
   currency: string
 }
 
+// Vars
 const initialData: Data = {
   firstName: '',
   lastName: '',
@@ -52,160 +51,210 @@ const initialData: Data = {
   state: '',
   zipCode: '',
   country: '',
-  language: 'french',
-  timezone: 'gmt-12',
-  currency: 'usd'
+  language: 'Français', // Default single value
+  timezone: '',
+  currency: 'eur'
 }
+
+// Only French and English as requested
+const languageData = ['Français', 'Anglais']
 
 const AccountDetails = () => {
   // States
   const [formData, setFormData] = useState<Data>(initialData)
   const [fileInput, setFileInput] = useState<string>('')
-  const [imgSrc, setImgSrc] = useState<string>('/images/avatars/1.png')
-  const [language, setLanguage] = useState<string[]>(['English'])
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [imgSrc, setImgSrc] = useState<string>('')
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Context de langue
-  const { currentLanguage, setLanguage: setAppLanguage, t } = useLanguage()
-
-  // Hooks
   const supabase = createClient()
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    setValue
-  } = useForm<Data>({ defaultValues: initialData })
+  const { t } = useLanguage()
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
+      setLoading(true)
       const {
         data: { user }
       } = await supabase.auth.getUser()
-
       if (user) {
-        // L'email vient de l'objet user directement
-        setFormData(prev => ({ ...prev, email: user.email || '' }))
-        setValue('email', user.email || '')
+        setUser(user)
 
+        // Setup initial avatar
+        setImgSrc(user.user_metadata?.avatar_url || '/images/avatars/1.png')
 
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
+        // Fetch profile data
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+        let firstName = ''
+        let lastName = ''
+
+        // Initialize from user metadata if available
+        if (user.user_metadata?.full_name) {
+          const names = user.user_metadata.full_name.split(' ')
+          firstName = names[0] || ''
+          lastName = names.slice(1).join(' ') || ''
+        }
+
+        const newFormData: Data = {
+          firstName,
+          lastName,
+          email: user.email || '',
+          organization: user.user_metadata?.company || '',
+          phoneNumber: user.user_metadata?.phone || '',
+          address: '',
+          state: '',
+          zipCode: '',
+          country: '',
+          language: 'Français',
+          timezone: '',
+          currency: 'eur'
+        }
 
         if (profile) {
-            // Mise à jour de formData et des champs du formulaire
-            const newFormData = {
-                firstName: profile.first_name || '',
-                lastName: profile.last_name || '',
-                email: user.email || '', // Garder l'email de l'auth
-                organization: profile.organization || '',
-                phoneNumber: profile.phone_number || '',
-                address: profile.address || '',
-                state: profile.state || '',
-                zipCode: profile.zip_code || '',
-                country: profile.country || '',
-                language: profile.language || 'french',
-                timezone: profile.timezone || 'gmt-12',
-                currency: profile.currency || 'usd'
-            }
-            setFormData(newFormData)
-            
-            // Mettre à jour React Hook Form
-            Object.keys(newFormData).forEach(key => {
-                setValue(key as keyof Data, newFormData[key as keyof Data])
-            })
-            
-            // Mise à jour de la langue de l'application
-            setAppLanguage(newFormData.language as 'english' | 'french')
-
-          if (profile.avatar_url) {
-            // Construit l'URL publique pour l'avatar
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(profile.avatar_url)
-            setImgSrc(publicUrl)
+          if (profile.full_name) {
+            const names = profile.full_name.split(' ')
+            firstName = names[0] || ''
+            lastName = names.slice(1).join(' ') || ''
           }
+
+          newFormData.firstName = firstName
+          newFormData.lastName = lastName
+          newFormData.organization = profile.organization || newFormData.organization
+          newFormData.phoneNumber = profile.phone || newFormData.phoneNumber
+          newFormData.address = profile.address || ''
+          newFormData.state = profile.state || ''
+          newFormData.zipCode = profile.zip_code || ''
+          newFormData.country = profile.country || ''
+          // Handle existing language or default
+          newFormData.language = profile.language || 'Français'
+          newFormData.timezone = profile.timezone || ''
+          newFormData.currency = profile.currency || 'eur'
         }
+
+        setFormData(newFormData)
       }
+      setLoading(false)
     }
 
-    fetchProfile()
-  }, [supabase, setValue, setAppLanguage])
+    fetchData()
+  }, [])
 
-  const handleDelete = (value: string) => {
-    setLanguage(current => current.filter(item => item !== value))
+  const handleFormChange = (field: keyof Data, value: Data[keyof Data]) => {
+    setFormData({ ...formData, [field]: value })
   }
 
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleFileInputChange = async (file: ChangeEvent) => {
+    const reader = new FileReader()
+    const { files } = file.target as HTMLInputElement
 
-    if (file) {
-      setAvatarFile(file)
-      const reader = new FileReader()
+    if (files && files.length !== 0 && user) {
+      const selectedFile = files[0]
       reader.onload = () => setImgSrc(reader.result as string)
-      reader.readAsDataURL(file)
-      setFileInput(event.target.value)
-    }
-  }
+      reader.readAsDataURL(selectedFile)
 
-  const handleFileInputReset = () => {
-    setFileInput('')
-    setImgSrc('/images/avatars/1.png')
-    setAvatarFile(null)
-  }
+      // Upload to Supabase
+      setUploading(true)
+      try {
+        const fileExt = selectedFile.name.split('.').pop()
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`
+        const filePath = `avatars/${fileName}`
 
-  const onSubmit = async (data: Data) => {
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, selectedFile, { upsert: true })
 
-    if (user) {
-      let avatarPath = null
+        if (uploadError) throw uploadError
 
-      if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop()
-        const fileName = `${user.id}.${fileExt}`
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, avatarFile, {
-          upsert: true
+        const {
+          data: { publicUrl }
+        } = supabase.storage.from('avatars').getPublicUrl(filePath)
+
+        // Update auth metadata
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { avatar_url: publicUrl }
         })
 
-        if (!uploadError) {
-          avatarPath = fileName
-        }
-      }
+        if (updateError) throw updateError
 
-      const updates: any = {
-        id: user.id,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        organization: data.organization,
-        phone_number: data.phoneNumber,
-        address: data.address,
-        state: data.state,
-        zip_code: data.zipCode,
-        country: data.country,
-        language: data.language,
-        timezone: data.timezone,
-        currency: data.currency,
-        updated_at: new Date().toISOString()
-      }
+        // Also update profiles table
+        await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
 
-      if (avatarPath) {
-        updates.avatar_url = avatarPath
-      }
+        // Dispatch event for header sync
+        window.dispatchEvent(new Event('user:updated'))
 
-      const { error } = await supabase.from('profiles').upsert(updates)
-
-      if (error) {
-        console.error('Error updating profile:', error)
-         alert('Erreur lors de la mise à jour du profil: ' + error.message)
-      } else {
-        alert('Profil mis à jour avec succès !')
-        // Mettre à jour la langue immédiatement si elle a changé
-        setAppLanguage(data.language as 'english' | 'french')
+        setMessage({ type: 'success', text: t.account.upload_success })
+      } catch (error: any) {
+        console.error(error)
+        setMessage({ type: 'error', text: t.account.upload_error })
+      } finally {
+        setUploading(false)
       }
     }
+  }
+
+  const handleFileInputReset = async () => {
+    setFileInput('')
+    setImgSrc('/images/avatars/1.png')
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+
+    setMessage(null)
+    setLoading(true)
+
+    try {
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+
+      // 1. Update Profile Table
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: user.id,
+        full_name: fullName,
+        organization: formData.organization,
+        phone: formData.phoneNumber,
+        address: formData.address,
+        state: formData.state,
+        zip_code: formData.zipCode,
+        country: formData.country,
+        language: formData.language, // No longer an array
+        timezone: formData.timezone,
+        currency: formData.currency,
+        updated_at: new Date().toISOString()
+      })
+
+      if (profileError) throw profileError
+
+      // 2. Update Auth Metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: fullName,
+          company: formData.organization,
+          phone: formData.phoneNumber
+        }
+      })
+
+      if (authError) throw authError
+
+      // Dispatch event for header sync
+      window.dispatchEvent(new Event('user:updated'))
+
+      setMessage({ type: 'success', text: t.account.success_update })
+    } catch (error: any) {
+      setMessage({ type: 'error', text: t.account.error_update })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading && !user) {
+    return (
+      <div className='p-4 flex justify-center'>
+        <CircularProgress />
+      </div>
+    )
   }
 
   return (
@@ -215,8 +264,13 @@ const AccountDetails = () => {
           <img height={100} width={100} className='rounded' src={imgSrc} alt='Profile' />
           <div className='flex flex-grow flex-col gap-4'>
             <div className='flex flex-col sm:flex-row gap-4'>
-              <Button component='label' variant='contained' htmlFor='account-settings-upload-image'>
-                {t('uploadPhoto')}
+              <Button
+                component='label'
+                variant='contained'
+                htmlFor='account-settings-upload-image'
+                disabled={uploading}
+              >
+                {uploading ? t.common.loading : t.account.change_photo}
                 <input
                   hidden
                   type='file'
@@ -226,182 +280,165 @@ const AccountDetails = () => {
                   id='account-settings-upload-image'
                 />
               </Button>
-              <Button color='secondary' variant='tonal' onClick={handleFileInputReset}>
-                {t('reset')}
+              <Button variant='tonal' color='secondary' onClick={handleFileInputReset}>
+                {t.account.reset_photo}
               </Button>
             </div>
-            <Typography>{t('allowedFileTypes')}</Typography>
+            <Typography>{t.account.upload_text}</Typography>
           </div>
         </div>
       </CardContent>
       <Divider />
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit}>
+          {message && (
+            <Alert severity={message.type} sx={{ mb: 4 }}>
+              {message.text}
+            </Alert>
+          )}
           <Grid container spacing={6}>
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name='firstName'
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('firstName')} placeholder='John' error={Boolean(errors.firstName)} />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.first_name}
+                value={formData.firstName}
+                placeholder='Jean'
+                onChange={e => handleFormChange('firstName', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name='lastName'
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('lastName')} placeholder='Doe' error={Boolean(errors.lastName)} />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.last_name}
+                value={formData.lastName}
+                placeholder='Dupont'
+                onChange={e => handleFormChange('lastName', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name='email'
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label='Email' placeholder='john.doe@gmail.com' error={Boolean(errors.email)} disabled />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.email}
+                value={formData.email}
+                placeholder='jean.dupont@email.com'
+                disabled
+                helperText={t.account.email_helper}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-               <Controller
-                name='organization'
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('organization')} placeholder='JurisBot Inc.' />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.organization}
+                value={formData.organization}
+                placeholder='Ma Société'
+                onChange={e => handleFormChange('organization', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name='phoneNumber'
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('phoneNumber')} placeholder='+1 (234) 567-8901' />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.phone}
+                value={formData.phoneNumber}
+                placeholder='+33 6 12 34 56 78'
+                onChange={e => handleFormChange('phoneNumber', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-               <Controller
-                name='address'
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('address')} placeholder='123 Main St' />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.address}
+                value={formData.address}
+                placeholder='123 Rue de la Paix'
+                onChange={e => handleFormChange('address', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-               <Controller
-                name='state'
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('state')} placeholder='New York' />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                label={t.account.ville}
+                value={formData.state}
+                placeholder='Paris'
+                onChange={e => handleFormChange('state', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-               <Controller
-                name='zipCode'
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label={t('zipCode')} placeholder='10001' />
-                )}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                fullWidth
+                type='text'
+                label={t.account.zip}
+                value={formData.zipCode}
+                placeholder='75000'
+                onChange={e => handleFormChange('zipCode', e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>{t('country')}</InputLabel>
-                <Controller
-                  name='country'
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field} label={t('country')}>
-                      <MenuItem value='usa'>USA</MenuItem>
-                      <MenuItem value='uk'>UK</MenuItem>
-                      <MenuItem value='australia'>Australia</MenuItem>
-                      <MenuItem value='germany'>Germany</MenuItem>
-                      <MenuItem value='france'>France</MenuItem>
-                    </Select>
-                  )}
-                />
-              </FormControl>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                select
+                fullWidth
+                label={t.account.country}
+                value={formData.country}
+                onChange={e => handleFormChange('country', e.target.value)}
+              >
+                <MenuItem value='france'>France</MenuItem>
+                <MenuItem value='usa'>États-Unis</MenuItem>
+                <MenuItem value='uk'>Royaume-Uni</MenuItem>
+                <MenuItem value='germany'>Allemagne</MenuItem>
+                <MenuItem value='australia'>Australie</MenuItem>
+              </CustomTextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>{t('language')}</InputLabel>
-                <Controller
-                  name='language'
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field} label={t('language')}>
-                      <MenuItem value='english'>English</MenuItem>
-                      <MenuItem value='french'>French</MenuItem>
-                      <MenuItem value='spanish'>Spanish</MenuItem>
-                      <MenuItem value='arabic'>Arabic</MenuItem>
-                      <MenuItem value='hindi'>Hindi</MenuItem>
-                    </Select>
-                  )}
-                />
-              </FormControl>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              {/* Single Select Language */}
+              <CustomTextField
+                select
+                fullWidth
+                label={t.account.language}
+                value={formData.language}
+                onChange={e => handleFormChange('language', e.target.value)}
+              >
+                {languageData.map(name => (
+                  <MenuItem key={name} value={name}>
+                    {name}
+                  </MenuItem>
+                ))}
+              </CustomTextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>{t('timezone')}</InputLabel>
-                <Controller
-                  name='timezone'
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field} label={t('timezone')}>
-                      <MenuItem value='gmt-12'>(GMT-12:00) International Date Line West</MenuItem>
-                      <MenuItem value='gmt-11'>(GMT-11:00) Midway Island, Samoa</MenuItem>
-                      <MenuItem value='gmt-10'>(GMT-10:00) Hawaii</MenuItem>
-                      <MenuItem value='gmt-9'>(GMT-09:00) Alaska</MenuItem>
-                      <MenuItem value='gmt-8'>(GMT-08:00) Pacific Time (US & Canada)</MenuItem>
-                      <MenuItem value='gmt-8-baja'>(GMT-08:00) Baja California</MenuItem>
-                      <MenuItem value='gmt-7'>(GMT-07:00) Mountain Time (US & Canada)</MenuItem>
-                      <MenuItem value='gmt-7-chihuahua'>(GMT-07:00) Chihuahua, La Paz, Mazatlan</MenuItem>
-                      <MenuItem value='gmt-7-arizona'>(GMT-07:00) Arizona</MenuItem>
-                      <MenuItem value='gmt-6'>(GMT-06:00) Central Time (US & Canada)</MenuItem>
-                      <MenuItem value='gmt-6-saskatchewan'>(GMT-06:00) Saskatchewan</MenuItem>
-                      <MenuItem value='gmt-6-guadalajara'>(GMT-06:00) Guadalajara, Mexico City, Monterrey</MenuItem>
-                      <MenuItem value='gmt-5'>(GMT-05:00) Eastern Time (US & Canada)</MenuItem>
-                      <MenuItem value='gmt-5-bogota'>(GMT-05:00) Bogota, Lima, Quito, Rio Branco</MenuItem>
-                      <MenuItem value='gmt-5-indiana'>(GMT-05:00) Indiana (East)</MenuItem>
-                      <MenuItem value='gmt-4'>(GMT-04:00) Atlantic Time (Canada)</MenuItem>
-                      <MenuItem value='gmt-4-caracas'>(GMT-04:00) Caracas, La Paz</MenuItem>
-                    </Select>
-                  )}
-                />
-              </FormControl>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                select
+                fullWidth
+                label={t.account.timezone}
+                value={formData.timezone}
+                onChange={e => handleFormChange('timezone', e.target.value)}
+                slotProps={{
+                  select: { MenuProps: { PaperProps: { style: { maxHeight: 250 } } } }
+                }}
+              >
+                <MenuItem value='gmt-12'>(GMT-12:00) International Date Line West</MenuItem>
+                <MenuItem value='gmt-01'>(GMT+01:00) Paris, Bruxelles, Copenhague, Madrid</MenuItem>
+                <MenuItem value='gmt-00'>(GMT+00:00) Londres, Dublin, Édimbourg</MenuItem>
+                <MenuItem value='gmt-05'>(GMT-05:00) Heure de l'Est (US & Canada)</MenuItem>
+                <MenuItem value='gmt-08'>(GMT-08:00) Heure du Pacifique (US & Canada)</MenuItem>
+              </CustomTextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>{t('currency')}</InputLabel>
-                <Controller
-                  name='currency'
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field} label={t('currency')}>
-                      <MenuItem value='usd'>USD</MenuItem>
-                      <MenuItem value='eur'>EUR</MenuItem>
-                      <MenuItem value='pound'>Pound</MenuItem>
-                      <MenuItem value='bitcoin'>Bitcoin</MenuItem>
-                    </Select>
-                  )}
-                />
-              </FormControl>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <CustomTextField
+                select
+                fullWidth
+                label={t.account.currency}
+                value={formData.currency}
+                onChange={e => handleFormChange('currency', e.target.value)}
+              >
+                <MenuItem value='eur'>EUR (€)</MenuItem>
+                <MenuItem value='usd'>USD ($)</MenuItem>
+                <MenuItem value='gbp'>GBP (£)</MenuItem>
+              </CustomTextField>
             </Grid>
-            <Grid item xs={12} className='flex gap-4 flex-wrap'>
-              <Button variant='contained' type='submit'>
-                {t('saveChanges')}
+            <Grid size={{ xs: 12 }} className='flex gap-4 flex-wrap'>
+              <Button variant='contained' type='submit' disabled={loading}>
+                {loading ? t.common.saving : t.common.save}
               </Button>
-              <Button variant='tonal' color='secondary' type='reset' onClick={() => setFormData(initialData)}>
-                {t('reset')}
+              <Button variant='tonal' type='reset' color='secondary' onClick={() => setFormData(initialData)}>
+                {t.common.reset}
               </Button>
             </Grid>
           </Grid>

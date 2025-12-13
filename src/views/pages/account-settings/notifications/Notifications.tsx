@@ -4,131 +4,211 @@
 import { useState, useEffect } from 'react'
 
 // MUI Imports
-import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardHeader from '@mui/material/CardHeader'
 import CardContent from '@mui/material/CardContent'
+import Grid from '@mui/material/Grid2'
 import Typography from '@mui/material/Typography'
 import Checkbox from '@mui/material/Checkbox'
 import Button from '@mui/material/Button'
-import FormControl from '@mui/material/FormControl'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import Chip from '@mui/material/Chip' // Assuming Chip is used somewhere or removed if unused
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
 
-// Utils Imports
-import { createClient } from '@/utils/supabase/client'
+// Component Imports
+import CustomTextField from '@core/components/mui/TextField'
+import MenuItem from '@mui/material/MenuItem'
 
-const Notifications = () => {
-  // States
-  const [notificationSettings, setNotificationSettings] = useState({
-      newForYou: { email: true, browser: true, app: true },
-      accountActivity: { email: true, browser: true, app: true },
-      newBrowser: { email: true, browser: true, app: false },
-      newDevice: { email: false, browser: true, app: false }
-  })
-  const [sendNotificationWhen, setSendNotificationWhen] = useState('online')
+// Supabase Imports
+import { createClient } from '@/utils/supabase'
 
-  // Supabase (placeholder)
+// Context Imports
+import { useLanguage } from '@/contexts/LanguageContext'
+
+type NotificationType = 'new_for_you' | 'account_activity' | 'new_browser' | 'new_device'
+
+type NotificationSettings = {
+  notifications: {
+    [key in NotificationType]: {
+      email: boolean
+      browser: boolean
+      app: boolean
+    }
+  }
+  when_to_send: 'online' | 'always' | 'never'
+}
+
+const defaultSettings: NotificationSettings = {
+  notifications: {
+    new_for_you: { email: true, browser: true, app: true },
+    account_activity: { email: true, browser: true, app: true },
+    new_browser: { email: true, browser: true, app: false },
+    new_device: { email: true, browser: false, app: false }
+  },
+  when_to_send: 'online'
+}
+
+const NotificationsTab = () => {
+  const [settings, setSettings] = useState<NotificationSettings>(defaultSettings)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   const supabase = createClient()
+  const { t } = useLanguage()
 
-  // Handler for checkboxes
-  const handleCheckboxChange = (category: keyof typeof notificationSettings, type: 'email' | 'browser' | 'app') => {
-      setNotificationSettings(prev => ({
-          ...prev,
-          [category]: {
-              ...prev[category],
-              [type]: !prev[category][type]
-          }
-      }))
+  const notificationLabels: Record<NotificationType, string> = {
+    new_for_you: t.notifications.new_for_you,
+    account_activity: t.notifications.account_activity,
+    new_browser: t.notifications.new_browser,
+    new_device: t.notifications.new_device
+  }
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setLoading(true)
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from('user_settings').select('notifications').eq('user_id', user.id).single()
+
+        if (data?.notifications) {
+          setSettings(prev => ({ ...prev, ...data.notifications }))
+        }
+      }
+      setLoading(false)
+    }
+
+    fetchSettings()
+  }, [])
+
+  const handleCheckboxChange = (type: NotificationType, channel: 'email' | 'browser' | 'app') => {
+    setSettings(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [type]: {
+          ...prev.notifications[type],
+          [channel]: !prev.notifications[type][channel]
+        }
+      }
+    }))
+  }
+
+  const handleSelectChange = (value: string) => {
+    setSettings(prev => ({ ...prev, when_to_send: value as any }))
   }
 
   const handleSave = async () => {
-      // TODO: Save to Supabase
-      console.log('Settings saved:', { notificationSettings, sendNotificationWhen })
-      alert('Paramètres de notification enregistrés !')
+    setMessage(null)
+    setSaving(true)
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    if (user) {
+      const { error } = await supabase.from('user_settings').upsert({
+        user_id: user.id,
+        notifications: settings,
+        updated_at: new Date().toISOString()
+      })
+
+      if (error) {
+        setMessage({ type: 'error', text: t.notifications.error_save })
+      } else {
+        setMessage({ type: 'success', text: t.notifications.success_save })
+      }
+    }
+    setSaving(false)
   }
+
+  if (loading)
+    return (
+      <div className='p-4 flex justify-center'>
+        <CircularProgress />
+      </div>
+    )
 
   return (
     <Card>
-      <CardHeader title='Paramètres de notification' subheader='Sélectionnez les notifications que vous souhaitez recevoir' />
+      <CardHeader title={t.notifications.recent_devices} subheader={t.notifications.permission_text} />
       <CardContent>
-        <Typography className='font-medium mb-4' color='text.primary'>
-            Activité récente
-        </Typography>
+        {message && (
+          <Alert severity={message.type} className='mb-4'>
+            {message.text}
+          </Alert>
+        )}
         <TableContainer className='border rounded'>
-            <Table>
-                <TableHead>
-                    <TableRow>
-                        <TableCell>Type</TableCell>
-                        <TableCell align='center'>Email</TableCell>
-                        <TableCell align='center'>Navigateur</TableCell>
-                        <TableCell align='center'>App</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    <TableRow>
-                        <TableCell>Nouvelles pour vous</TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newForYou.email} onChange={() => handleCheckboxChange('newForYou', 'email')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newForYou.browser} onChange={() => handleCheckboxChange('newForYou', 'browser')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newForYou.app} onChange={() => handleCheckboxChange('newForYou', 'app')} /></TableCell>
-                    </TableRow>
-                     <TableRow>
-                        <TableCell>Activité du compte</TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.accountActivity.email} onChange={() => handleCheckboxChange('accountActivity', 'email')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.accountActivity.browser} onChange={() => handleCheckboxChange('accountActivity', 'browser')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.accountActivity.app} onChange={() => handleCheckboxChange('accountActivity', 'app')} /></TableCell>
-                    </TableRow>
-                    <TableRow>
-                        <TableCell>Un nouveau navigateur utilisé pour se connecter</TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newBrowser.email} onChange={() => handleCheckboxChange('newBrowser', 'email')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newBrowser.browser} onChange={() => handleCheckboxChange('newBrowser', 'browser')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newBrowser.app} onChange={() => handleCheckboxChange('newBrowser', 'app')} /></TableCell>
-                    </TableRow>
-                     <TableRow>
-                        <TableCell>Un nouvel appareil est connecté</TableCell>
-                         <TableCell align='center'><Checkbox checked={notificationSettings.newDevice.email} onChange={() => handleCheckboxChange('newDevice', 'email')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newDevice.browser} onChange={() => handleCheckboxChange('newDevice', 'browser')} /></TableCell>
-                        <TableCell align='center'><Checkbox checked={notificationSettings.newDevice.app} onChange={() => handleCheckboxChange('newDevice', 'app')} /></TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t.notifications.table_type}</TableCell>
+                <TableCell align='center'>{t.notifications.table_email}</TableCell>
+                <TableCell align='center'>{t.notifications.table_browser}</TableCell>
+                <TableCell align='center'>{t.notifications.table_app}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(Object.keys(notificationLabels) as NotificationType[]).map(type => (
+                <TableRow key={type}>
+                  <TableCell>{notificationLabels[type as NotificationType]}</TableCell>
+                  <TableCell align='center'>
+                    <Checkbox
+                      checked={settings.notifications[type as NotificationType]?.email ?? false}
+                      onChange={() => handleCheckboxChange(type as NotificationType, 'email')}
+                    />
+                  </TableCell>
+                  <TableCell align='center'>
+                    <Checkbox
+                      checked={settings.notifications[type as NotificationType]?.browser ?? false}
+                      onChange={() => handleCheckboxChange(type as NotificationType, 'browser')}
+                    />
+                  </TableCell>
+                  <TableCell align='center'>
+                    <Checkbox
+                      checked={settings.notifications[type as NotificationType]?.app ?? false}
+                      onChange={() => handleCheckboxChange(type as NotificationType, 'app')}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TableContainer>
-
-        <div className='mt-6'>
-            <Typography className='font-medium mb-2' color='text.primary'>
-                Quand devrions-nous vous envoyer des notifications ?
-            </Typography>
-            <FormControl fullWidth className='sm:is-[300px]'>
-                <Select value={sendNotificationWhen} onChange={(e) => setSendNotificationWhen(e.target.value as string)}>
-                    <MenuItem value='online'>Seulement quand je suis en ligne</MenuItem>
-                    <MenuItem value='always'>Toujours</MenuItem>
-                    <MenuItem value='never'>Jamais</MenuItem>
-                </Select>
-            </FormControl>
-        </div>
-
-        <div className='flex gap-4 mt-6'>
-            <Button variant='contained' onClick={handleSave}>Enregistrer les modifications</Button>
-            <Button variant='tonal' color='secondary' onClick={() => {
-                 setNotificationSettings({
-                    newForYou: { email: true, browser: true, app: true },
-                    accountActivity: { email: true, browser: true, app: true },
-                    newBrowser: { email: true, browser: true, app: false },
-                    newDevice: { email: false, browser: true, app: false }
-                })
-                setSendNotificationWhen('online')
-            }}>Réinitialiser</Button>
-        </div>
+      </CardContent>
+      <CardContent>
+        <Typography className='mbe-4 font-medium'>{t.notifications.send_question}</Typography>
+        <Grid container spacing={4}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <CustomTextField
+              select
+              fullWidth
+              value={settings.when_to_send}
+              onChange={e => handleSelectChange(e.target.value)}
+            >
+              <MenuItem value='online'>{t.notifications.opt_online}</MenuItem>
+              <MenuItem value='always'>{t.notifications.opt_always}</MenuItem>
+              <MenuItem value='never'>{t.notifications.opt_never}</MenuItem>
+            </CustomTextField>
+          </Grid>
+          <Grid size={{ xs: 12 }} className='flex gap-4'>
+            <Button variant='contained' onClick={handleSave} disabled={saving}>
+              {saving ? t.common.saving : t.common.save}
+            </Button>
+            <Button variant='tonal' color='secondary' onClick={() => setSettings(defaultSettings)}>
+              {t.common.reset}
+            </Button>
+          </Grid>
+        </Grid>
       </CardContent>
     </Card>
   )
 }
 
-export default Notifications
+export default NotificationsTab

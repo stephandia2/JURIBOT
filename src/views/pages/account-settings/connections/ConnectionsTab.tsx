@@ -4,150 +4,188 @@
 import { useState, useEffect } from 'react'
 
 // MUI Imports
-import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardHeader from '@mui/material/CardHeader'
 import CardContent from '@mui/material/CardContent'
+import Grid from '@mui/material/Grid2'
 import Typography from '@mui/material/Typography'
 import Switch from '@mui/material/Switch'
 import Button from '@mui/material/Button'
+import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 
-// Utils Imports
-import { createClient } from '@/utils/supabase/client'
+// Supabase Imports
+import { createClient } from '@/utils/supabase'
 
-type Connection = {
-    provider: string
-    isConnected: boolean
-    icon: string
-    title: string
-    description: string
+// Context Imports
+import { useLanguage } from '@/contexts/LanguageContext'
+
+type ConnectedAccount = {
+  id: string
+  name: string
+  subtitleKey: string
+  logo: string
 }
 
-const initialConnections: Connection[] = [
-    {
-        provider: 'google',
-        isConnected: false,
-        icon: 'tabler-brand-google',
-        title: 'Google',
-        description: 'Calendrier et contacts'
-    },
-    {
-        provider: 'slack',
-        isConnected: false,
-        icon: 'tabler-brand-slack',
-        title: 'Slack',
-        description: 'Communication'
-    },
-    {
-        provider: 'github',
-        isConnected: false,
-        icon: 'tabler-brand-github',
-        title: 'GitHub',
-        description: 'Gérer vos dépôts git'
-    },
-    {
-        provider: 'mailchimp',
-        isConnected: true,
-        icon: 'tabler-brand-mailchimp',
-        title: 'Mailchimp',
-        description: 'Service de marketing par courriel'
-    }
+const connectedAccountsList: ConnectedAccount[] = [
+  { id: 'google', name: 'Google', subtitleKey: 'google_sub', logo: 'tabler-brand-google' },
+  { id: 'slack', name: 'Slack', subtitleKey: 'slack_sub', logo: 'tabler-brand-slack' },
+  { id: 'github', name: 'Github', subtitleKey: 'github_sub', logo: 'tabler-brand-github' },
+  { id: 'mailchimp', name: 'Mailchimp', subtitleKey: 'mailchimp_sub', logo: 'tabler-brand-mailchimp' },
+  { id: 'asana', name: 'Asana', subtitleKey: 'asana_sub', logo: 'tabler-brand-asana' }
 ]
 
-const initialSocialAccounts = [
-    {
-        name: 'Facebook',
-        isConnected: false,
-        icon: 'tabler-brand-facebook',
-        url: 'https://facebook.com/jurisbot'
-    },
-    {
-        name: 'Twitter',
-        isConnected: true,
-        icon: 'tabler-brand-twitter',
-        url: 'https://twitter.com/jurisbot'
-    },
-    {
-        name: 'Instagram',
-        isConnected: true,
-        icon: 'tabler-brand-instagram',
-        url: 'https://instagram.com/jurisbot'
-    }
+const socialAccountsList: ConnectedAccount[] = [
+  { id: 'facebook', name: 'Facebook', subtitleKey: 'not_connected', logo: 'tabler-brand-facebook' },
+  { id: 'twitter', name: 'Twitter', subtitleKey: 'not_connected', logo: 'tabler-brand-twitter' }, // Simplification for translations
+  { id: 'instagram', name: 'Instagram', subtitleKey: 'not_connected', logo: 'tabler-brand-instagram' },
+  { id: 'dribbble', name: 'Dribbble', subtitleKey: 'not_connected', logo: 'tabler-brand-dribbble' },
+  { id: 'behance', name: 'Behance', subtitleKey: 'not_connected', logo: 'tabler-brand-behance' }
 ]
 
 const ConnectionsTab = () => {
-    // States
-    const [connectedAccounts, setConnectedAccounts] = useState(initialConnections)
-    const [socialAccounts, setSocialAccounts] = useState(initialSocialAccounts)
+  const [connections, setConnections] = useState<Record<string, boolean>>({})
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-    // Supabase (placeholder for future implementation)
-    const supabase = createClient()
+  const supabase = createClient()
+  const { t } = useLanguage()
 
-    const handleConnectionToggle = (provider: string) => {
-        setConnectedAccounts(prev => prev.map(account => 
-            account.provider === provider ? { ...account, isConnected: !account.isConnected } : account
-        ))
-        // TODO: Update in Supabase
+  useEffect(() => {
+    const fetchConnections = async () => {
+      setLoading(true)
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from('user_settings').select('connections').eq('user_id', user.id).single()
+
+        if (data?.connections) {
+          setConnections(data.connections)
+        }
+      }
+      setLoading(false)
     }
 
-    const handleSocialToggle = (name: string) => {
-        setSocialAccounts(prev => prev.map(account =>
-            account.name === name ? { ...account, isConnected: !account.isConnected } : account
-        ))
-         // TODO: Update in Supabase
+    fetchConnections()
+  }, [])
+
+  const handleToggle = async (id: string, checked: boolean) => {
+    // Optimistic update
+    const newConnections = { ...connections, [id]: checked }
+    setConnections(newConnections)
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+    if (user) {
+      const { error } = await supabase.from('user_settings').upsert({
+        user_id: user.id,
+        connections: newConnections,
+        updated_at: new Date().toISOString()
+      })
+
+      if (error) {
+        setMessage({ type: 'error', text: t.common.error })
+        // Revert
+        setConnections(connections)
+      }
     }
-    
-    // TODO: remove link logic not implemented
+  }
+
+  const handleSocialConnect = async (id: string) => {
+    // Mock connecting logic
+    const isConnected = !!connections[id]
+    handleToggle(id, !isConnected)
+  }
+
+  if (loading)
+    return (
+      <div className='p-4 flex justify-center'>
+        <CircularProgress />
+      </div>
+    )
 
   return (
     <Grid container spacing={6}>
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12 }}>
+        {message && (
+          <Alert severity={message.type} onClose={() => setMessage(null)}>
+            {message.text}
+          </Alert>
+        )}
+      </Grid>
+
+      {/* Connected Accounts */}
+      <Grid size={{ xs: 12, md: 6 }}>
         <Card>
-          <CardHeader title='Comptes connectés' subheader='Affichez le contenu de vos comptes tiers' />
+          <CardHeader title={t.connections.connected_title} subheader={t.connections.connected_sub} />
           <CardContent className='flex flex-col gap-4'>
-            {connectedAccounts.map((account, index) => (
-                <div key={index} className='flex items-center justify-between'>
-                    <div className='flex items-center gap-3'>
-                        <i className={`${account.icon} text-3xl`} />
-                        <div>
-                            <Typography className='font-medium' color='text.primary'>{account.title}</Typography>
-                            <Typography variant='body2'>{account.description}</Typography>
-                        </div>
-                    </div>
-                    <Switch checked={account.isConnected} onChange={() => handleConnectionToggle(account.provider)} />
+            {connectedAccountsList.map(account => (
+              <div key={account.id} className='flex items-center justify-between'>
+                <div className='flex items-center gap-3'>
+                  <Box className='flex items-center justify-center w-9 h-9 rounded bg-actionHover'>
+                    <i className={`${account.logo} text-xl`} />
+                  </Box>
+                  <div>
+                    <Typography className='font-medium'>{account.name}</Typography>
+                    <Typography variant='caption'>
+                      {t.connections[account.subtitleKey as keyof typeof t.connections]}
+                    </Typography>
+                  </div>
                 </div>
+                <Switch
+                  checked={!!connections[account.id]}
+                  onChange={(e, checked) => handleToggle(account.id, checked)}
+                />
+              </div>
             ))}
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={6}>
+      {/* Social Accounts */}
+      <Grid size={{ xs: 12, md: 6 }}>
         <Card>
-          <CardHeader title='Comptes sociaux' subheader='Affichez le contenu de vos comptes sociaux' />
+          <CardHeader title={t.connections.social_title} subheader={t.connections.social_sub} />
           <CardContent className='flex flex-col gap-4'>
-              {socialAccounts.map((account, index) => (
-                   <div key={index} className='flex items-center justify-between'>
-                       <div className='flex items-center gap-3'>
-                            <div className='flex justify-center items-center bg-actionHover rounded w-[38px] h-[38px]'>
-                               <i className={`${account.icon} text-xl`} />
-                            </div>
-                           <div>
-                               <Typography className='font-medium' color='text.primary'>{account.name}</Typography>
-                               {account.isConnected ? (
-                                   <a href={account.url} target='_blank' rel='noopener noreferrer' className='text-sm text-primary'>
-                                       @jurisbot
-                                   </a>
-                               ) : (
-                                   <Typography variant='body2'>Non connecté</Typography>
-                               )}
-                           </div>
-                       </div>
-                       <Button variant='tonal' color={account.isConnected ? 'error' : 'secondary'} size='small' onClick={() => handleSocialToggle(account.name)}>
-                           <i className={`tabler-${account.isConnected ? 'trash' : 'link'} mr-2`} />
-                           {account.isConnected ? 'Déconnecter' : 'Connecter'}
-                       </Button>
-                   </div>
-              ))}
+            {socialAccountsList.map(account => {
+              const isConnected = !!connections[account.id]
+              return (
+                <div key={account.id} className='flex items-center justify-between'>
+                  <div className='flex items-center gap-3'>
+                    <Box className='flex items-center justify-center w-9 h-9 rounded bg-actionHover'>
+                      <i className={`${account.logo} text-xl`} />
+                    </Box>
+                    <div>
+                      <Typography className='font-medium'>{account.name}</Typography>
+                      <Typography
+                        variant='caption'
+                        color={isConnected ? 'primary' : 'textSecondary'}
+                        component={isConnected ? 'a' : 'span'}
+                        href='#'
+                      >
+                        {isConnected
+                          ? account.id === 'twitter' || account.id === 'instagram'
+                            ? '@Pixinvent'
+                            : t.connections.not_connected
+                          : t.connections.not_connected}
+                      </Typography>
+                    </div>
+                  </div>
+                  <Button
+                    variant='tonal'
+                    size='small'
+                    color={isConnected ? 'error' : 'secondary'}
+                    className='min-w-[40px] px-2'
+                    onClick={() => handleSocialConnect(account.id)}
+                  >
+                    <i className={isConnected ? 'tabler-trash' : 'tabler-link'} />
+                  </Button>
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
       </Grid>

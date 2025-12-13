@@ -1,0 +1,5 @@
+﻿C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\configs\primaryColorConfig.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\configs\themeConfig.ts
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\contexts\LanguageContext.tsx
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\data\navigation\horizontalMenuData.tsx
+C:\Users\Steph\Desktop\IA STEPH\APPLICATIONS\JURIBOT\src\data\navigation\verticalMenuData.tsx
