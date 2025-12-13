@@ -4,8 +4,10 @@
 import { useState } from 'react'
 
 // Next Imports
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+
+// Supabase Imports
+import { createClient } from '@/utils/supabase'
 
 // MUI Imports
 import useMediaQuery from '@mui/material/useMediaQuery'
@@ -17,8 +19,6 @@ import Checkbox from '@mui/material/Checkbox'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Divider from '@mui/material/Divider'
-import Alert from '@mui/material/Alert'
-import CircularProgress from '@mui/material/CircularProgress'
 
 // Third-party Imports
 import classnames from 'classnames'
@@ -27,15 +27,16 @@ import classnames from 'classnames'
 import type { SystemMode } from '@core/types'
 
 // Component Imports
+import Link from '@components/Link'
 import Logo from '@components/layout/shared/Logo'
 import CustomTextField from '@core/components/mui/TextField'
+
+// Config Imports
+import themeConfig from '@configs/themeConfig'
 
 // Hook Imports
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
-
-// Utils Imports
-import { createClient } from '@/utils/supabase/client'
 
 // Styled Custom Components
 const LoginIllustration = styled('img')(({ theme }) => ({
@@ -61,13 +62,14 @@ const MaskImg = styled('img')({
   zIndex: -1
 })
 
-const Login = ({ mode }: { mode: SystemMode }) => {
+const LoginV2 = ({ mode }: { mode: SystemMode }) => {
   // States
   const [isPasswordShown, setIsPasswordShown] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false) // Added loading state
+
+  const supabase = createClient()
 
   // Vars
   const darkImg = '/images/pages/auth-mask-dark.png'
@@ -94,49 +96,6 @@ const Login = ({ mode }: { mode: SystemMode }) => {
 
   const handleClickShowPassword = () => setIsPasswordShown(show => !show)
 
-  const supabase = createClient()
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true) // Start loading
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        router.refresh()
-        router.push('/dashboard')
-      }
-    } catch (err: any) {
-      setError('Une erreur inattendue est survenue.')
-      console.error(err)
-    } finally {
-      setLoading(false) // Stop loading
-    }
-  }
-
-  const handleSocialLogin = async (provider: 'google' | 'github' | 'twitter') => {
-    setLoading(true) // Start loading for social login too if you want to show spinner
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false) // Stop on error
-    }
-    // No finally block needed here as redirect will happen or error will be shown
-  }
-
   return (
     <div className='flex bs-full justify-center'>
       <div
@@ -157,21 +116,46 @@ const Login = ({ mode }: { mode: SystemMode }) => {
         )}
       </div>
       <div className='flex justify-center items-center bs-full bg-backgroundPaper !min-is-full p-6 md:!min-is-[unset] md:p-12 md:is-[480px]'>
-        <div className='absolute block-start-5 sm:block-start-[33px] inline-start-6 sm:inline-start-[38px]'>
+        <Link className='absolute block-start-5 sm:block-start-[33px] inline-start-6 sm:inline-start-[38px]'>
           <Logo />
-        </div>
+        </Link>
         <div className='flex flex-col gap-6 is-full sm:is-auto md:is-full sm:max-is-[400px] md:max-is-[unset] mbs-11 sm:mbs-14 md:mbs-0'>
           <div className='flex flex-col gap-1'>
-            <Typography variant='h4'>{`Bienvenue sur JurisBot! 👋🏻`}</Typography>
-            <Typography>Veuillez vous connecter à votre compte et commencer l'aventure</Typography>
+            <Typography variant='h4'>Bienvenue sur JurisBot ! 👋🏻</Typography>
+            <Typography>Connectez-vous pour accéder à votre espace</Typography>
           </div>
-          {error && <Alert severity='error'>{error}</Alert>}
-          <form noValidate autoComplete='off' onSubmit={handleLogin} className='flex flex-col gap-5'>
+          <form
+            noValidate
+            autoComplete='off'
+            onSubmit={async e => {
+              e.preventDefault()
+              setError(null)
+              const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+              })
+              if (error) {
+                if (error.message === 'Invalid login credentials') {
+                  setError('Identifiants incorrects')
+                } else {
+                  setError(error.message)
+                }
+              } else {
+                router.push('/dashboard')
+              }
+            }}
+            className='flex flex-col gap-5'
+          >
+            {error && (
+              <Typography color='error' className='text-center'>
+                {error}
+              </Typography>
+            )}
             <CustomTextField
               autoFocus
               fullWidth
               label='Email'
-              placeholder='admin@jurisbot.com'
+              placeholder='Votre adresse email'
               value={email}
               onChange={e => setEmail(e.target.value)}
             />
@@ -179,36 +163,34 @@ const Login = ({ mode }: { mode: SystemMode }) => {
               fullWidth
               label='Mot de passe'
               placeholder='············'
+              id='outlined-adornment-password'
               type={isPasswordShown ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position='end'>
-                    <IconButton edge='end' onClick={handleClickShowPassword} onMouseDown={e => e.preventDefault()}>
-                      <i className={isPasswordShown ? 'tabler-eye-off' : 'tabler-eye'} />
-                    </IconButton>
-                  </InputAdornment>
-                )
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position='end'>
+                      <IconButton edge='end' onClick={handleClickShowPassword} onMouseDown={e => e.preventDefault()}>
+                        <i className={isPasswordShown ? 'tabler-eye-off' : 'tabler-eye'} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
               }}
             />
             <div className='flex justify-between items-center gap-x-3 gap-y-1 flex-wrap'>
               <FormControlLabel control={<Checkbox />} label='Se souvenir de moi' />
-              <Typography
-                className='text-end'
-                color='primary'
-                component={Link}
-                href='/forgot-password'
-              >
+              <Typography className='text-end' color='primary.main' component={Link} href='/forgot-password'>
                 Mot de passe oublié ?
               </Typography>
             </div>
-            <Button fullWidth variant='contained' type='submit' disabled={loading}>
-              {loading ? <CircularProgress size={24} color='inherit' /> : 'Se connecter'}
+            <Button fullWidth variant='contained' type='submit' sx={{ backgroundColor: '#7367F0' }}>
+              Se connecter
             </Button>
             <div className='flex justify-center items-center flex-wrap gap-2'>
-              <Typography>Nouveau sur notre plateforme ?</Typography>
-              <Typography component={Link} href='/register' color='primary'>
+              <Typography>Pas encore de compte ?</Typography>
+              <Typography component={Link} href='/register' color='primary.main'>
                 Créer un compte
               </Typography>
             </div>
@@ -217,13 +199,13 @@ const Login = ({ mode }: { mode: SystemMode }) => {
               <IconButton className='text-facebook' size='small'>
                 <i className='tabler-brand-facebook-filled' />
               </IconButton>
-              <IconButton className='text-twitter' size='small' onClick={() => handleSocialLogin('twitter')}>
+              <IconButton className='text-twitter' size='small'>
                 <i className='tabler-brand-twitter-filled' />
               </IconButton>
-              <IconButton className='text-textPrimary' size='small' onClick={() => handleSocialLogin('github')}>
+              <IconButton className='text-textPrimary' size='small'>
                 <i className='tabler-brand-github-filled' />
               </IconButton>
-              <IconButton className='text-error' size='small' onClick={() => handleSocialLogin('google')}>
+              <IconButton className='text-error' size='small'>
                 <i className='tabler-brand-google-filled' />
               </IconButton>
             </div>
@@ -234,4 +216,4 @@ const Login = ({ mode }: { mode: SystemMode }) => {
   )
 }
 
-export default Login
+export default LoginV2

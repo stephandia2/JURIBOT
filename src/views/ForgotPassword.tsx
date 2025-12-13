@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 // Next Imports
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 // MUI Imports
 import useMediaQuery from '@mui/material/useMediaQuery'
@@ -12,7 +13,6 @@ import { styled, useTheme } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
-import CircularProgress from '@mui/material/CircularProgress'
 
 // Third-party Imports
 import classnames from 'classnames'
@@ -21,7 +21,6 @@ import classnames from 'classnames'
 import type { SystemMode } from '@core/types'
 
 // Component Imports
-import DirectionalIcon from '@components/DirectionalIcon'
 import Logo from '@components/layout/shared/Logo'
 import CustomTextField from '@core/components/mui/TextField'
 
@@ -29,8 +28,8 @@ import CustomTextField from '@core/components/mui/TextField'
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
 
-// Utils Imports
-import { createClient } from '@/utils/supabase/client'
+// Supabase Imports
+import { createClient } from '@/utils/supabase'
 
 // Styled Custom Components
 const ForgotPasswordIllustration = styled('img')(({ theme }) => ({
@@ -59,56 +58,43 @@ const MaskImg = styled('img')({
 const ForgotPassword = ({ mode }: { mode: SystemMode }) => {
   // States
   const [email, setEmail] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Hooks
+  const router = useRouter()
+  const { settings } = useSettings()
+  const theme = useTheme()
+  const supabase = createClient()
+  const hidden = useMediaQuery(theme.breakpoints.down('md'))
 
   // Vars
   const darkImg = '/images/pages/auth-mask-dark.png'
   const lightImg = '/images/pages/auth-mask-light.png'
   const darkIllustration = '/images/illustrations/auth/v2-forgot-password-dark.png'
   const lightIllustration = '/images/illustrations/auth/v2-forgot-password-light.png'
-  const borderedDarkIllustration = '/images/illustrations/auth/v2-forgot-password-dark-border.png'
-  const borderedLightIllustration = '/images/illustrations/auth/v2-forgot-password-light-border.png'
 
-  // Hooks
-  const { settings } = useSettings()
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
   const authBackground = useImageVariant(mode, lightImg, darkImg)
-
-  const characterIllustration = useImageVariant(
-    mode,
-    lightIllustration,
-    darkIllustration,
-    borderedLightIllustration,
-    borderedDarkIllustration
-  )
-
-  const supabase = createClient()
+  const characterIllustration = useImageVariant(mode, lightIllustration, darkIllustration)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
     setLoading(true)
+    setMessage(null)
 
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`, // Assurez-vous d'avoir cette page
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/reset-password`,
+    })
+
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+    } else {
+      setMessage({ 
+        type: 'success', 
+        text: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.' 
       })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setSuccess('Lien de réinitialisation envoyé ! Vérifiez votre boîte mail.')
-      }
-    } catch (err: any) {
-      setError('Une erreur est survenue.')
-      console.error(err)
-    } finally {
-        setLoading(false)
     }
+    setLoading(false)
   }
 
   return (
@@ -121,7 +107,11 @@ const ForgotPassword = ({ mode }: { mode: SystemMode }) => {
           }
         )}
       >
-        <ForgotPasswordIllustration src={characterIllustration} alt='character-illustration' />
+        <ForgotPasswordIllustration
+          src={characterIllustration}
+          alt='character-illustration'
+          className={classnames({ 'scale-x-[-1]': theme.direction === 'rtl' })}
+        />
         {!hidden && (
           <MaskImg
             alt='mask'
@@ -138,26 +128,38 @@ const ForgotPassword = ({ mode }: { mode: SystemMode }) => {
           <div className='flex flex-col gap-1'>
             <Typography variant='h4'>Mot de passe oublié ? 🔒</Typography>
             <Typography>
-              Entrez votre email et nous vous enverrons des instructions pour réinitialiser votre mot de passe
+              Entrez votre email et nous vous enverrons les instructions pour réinitialiser votre mot de passe
             </Typography>
           </div>
-          {error && <Alert severity='error'>{error}</Alert>}
-          {success && <Alert severity='success'>{success}</Alert>}
-          <form noValidate autoComplete='off' onSubmit={handleSubmit} className='flex flex-col gap-5'>
-            <CustomTextField
-              autoFocus
-              fullWidth
-              label='Email'
-              placeholder='john.doe@gmail.com'
+          <form noValidate autoComplete='off' onSubmit={handleSubmit} className='flex flex-col gap-6'>
+            {message && (
+              <Alert severity={message.type} onClose={() => setMessage(null)}>
+                {message.text}
+              </Alert>
+            )}
+            <CustomTextField 
+              autoFocus 
+              fullWidth 
+              label='Email' 
+              placeholder='Entrez votre email'
               value={email}
               onChange={e => setEmail(e.target.value)}
             />
-            <Button fullWidth variant='contained' type='submit' disabled={loading}>
-               {loading ? <CircularProgress size={24} color='inherit' /> : 'Envoyer le lien'}
+            <Button 
+              fullWidth 
+              variant='contained' 
+              type='submit'
+              disabled={loading}
+              sx={{ backgroundColor: '#7367F0' }}
+            >
+              {loading ? 'Envoi en cours...' : 'Envoyer le lien'}
             </Button>
-            <Typography className='flex justify-center items-center' color='primary'>
-              <Link href='/login' className='flex items-center gap-1.5'>
-                <DirectionalIcon ltrIconClass='tabler-chevron-left' rtlIconClass='tabler-chevron-right' />
+            <Typography className='flex justify-center items-center' color='primary.main'>
+              <Link
+                href='/login'
+                className='flex items-center gap-1.5'
+              >
+                <i className='tabler-chevron-left text-xl' />
                 <span>Retour à la connexion</span>
               </Link>
             </Typography>

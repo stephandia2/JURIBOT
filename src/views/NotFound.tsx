@@ -18,7 +18,7 @@ import type { SystemMode } from '@core/types'
 // Hook Imports
 import { useImageVariant } from '@core/hooks/useImageVariant'
 
-// Styled Component
+// Styled Components
 const MaskImg = styled('img')({
   blockSize: 'auto',
   maxBlockSize: 355,
@@ -40,22 +40,22 @@ const NotFound = ({ mode }: { mode: SystemMode }) => {
 
   return (
     <div className='flex items-center justify-center min-bs-[100dvh] relative p-6 overflow-x-hidden'>
-      <div className='flex items-center flex-col text-center gap-10'>
-        <div className='flex flex-col gap-2 is-[90vw] sm:is-[unset]'>
+      <div className='flex items-center flex-col text-center'>
+        <div className='flex flex-col gap-2 is-[90vw] sm:is-[unset] mbe-6'>
           <Typography className='font-medium text-8xl' color='text.primary'>
             404
           </Typography>
-          <Typography variant='h4'>Page introuvable ⚠️</Typography>
-          <Typography>Nous n&#39;avons pas trouvé la page que vous recherchez.</Typography>
+          <Typography variant='h4'>Page Not Found ⚠️</Typography>
+          <Typography>we couldn&#39;t find the page you are looking for.</Typography>
         </div>
-        <img
-          alt='error-illustration'
-          src='/images/illustrations/characters/1.png'
-          className='object-cover bs-[400px] md:bs-[450px] lg:bs-[500px]'
-        />
         <Button href='/' component={Link} variant='contained'>
-          Retour à l&#39;accueil
+          Back To Home
         </Button>
+        <img
+          alt='error-404-illustration'
+          src='/images/illustrations/characters/1.png'
+          className='object-cover bs-[400px] md:bs-[450px] lg:bs-[500px] mbs-10 md:mbs-14 lg:mbs-20'
+        />
       </div>
       {!hidden && (
         <MaskImg
