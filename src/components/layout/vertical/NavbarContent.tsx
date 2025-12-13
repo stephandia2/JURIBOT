@@ -4,7 +4,7 @@
 import classnames from 'classnames'
 
 // Component Imports
-import NavToggle = from './NavToggle'
+import NavToggle from './NavToggle'
 import ModeDropdown from '@components/layout/shared/ModeDropdown'
 import UserDropdown from '@components/layout/shared/UserDropdown'
 
