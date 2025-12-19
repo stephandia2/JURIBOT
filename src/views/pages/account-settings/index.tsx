@@ -1,15 +1,17 @@
 'use client'
 
 // React Imports
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { SyntheticEvent } from 'react'
+
+// Next Imports
+import { useSearchParams } from 'next/navigation'
 
 // MUI Imports
 import Grid from '@mui/material/Grid2'
 import Tab from '@mui/material/Tab'
 import TabContext from '@mui/lab/TabContext'
 import TabPanel from '@mui/lab/TabPanel'
-import Typography from '@mui/material/Typography'
 
 // Component Imports
 import CustomTabList from '@core/components/mui/TabList'
@@ -23,11 +25,22 @@ import SecurityTab from './security/SecurityTab'
 import BillingPlansTab from './billing-plans/BillingPlans'
 import NotificationsTab from './notifications/Notifications'
 import ConnectionsTab from './connections/ConnectionsTab'
+import TagsTab from './tags/TagsTab'
 
 const AccountSettings = ({ tabContentList }: { tabContentList?: { [key: string]: React.ReactNode } }) => {
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+
   // States
-  const [activeTab, setActiveTab] = useState('account')
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'account')
   const { t } = useLanguage()
+
+  // Update tab when URL changes
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   const handleChange = (event: SyntheticEvent, value: string) => {
     setActiveTab(value)
@@ -83,6 +96,15 @@ const AccountSettings = ({ tabContentList }: { tabContentList?: { [key: string]:
               }
               value='connections'
             />
+            <Tab
+              label={
+                <div className='flex items-center gap-2'>
+                  <i className='tabler-tag' />
+                  Tags
+                </div>
+              }
+              value='tags'
+            />
           </CustomTabList>
         </Grid>
         <Grid size={{ xs: 12 }}>
@@ -100,6 +122,9 @@ const AccountSettings = ({ tabContentList }: { tabContentList?: { [key: string]:
           </TabPanel>
           <TabPanel value='connections' className='p-0'>
             <ConnectionsTab />
+          </TabPanel>
+          <TabPanel value='tags' className='p-0'>
+            <TagsTab />
           </TabPanel>
         </Grid>
       </Grid>

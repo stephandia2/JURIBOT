@@ -1,127 +1,62 @@
-# JurisBot v2 - Spécifications Techniques
+# JurisBot v2 - Plan d'Implémentation Phase 3.5
+**Objectif** : Fiabiliser l'expérience utilisateur (Correctifs) et préparer l'internationalisation (i18n).
 
-**Projet** : SaaS de Curation Juridique & Automatisation LinkedIn
-**Version** : 2.0 (Architecture "No-Code Core, Full-Code Power")
-**Date** : 11 Décembre 2025
+## 1. Correctifs "AccountDetails" & RLS
+### Problème
+- L'email ne s'affiche pas dans le formulaire de profil car il réside dans `auth.users` et non `public.profiles`.
+- La mise à jour du profil échoue souvent à cause de politiques RLS trop restrictives sur `public.profiles`.
+- Le champ "Région/État" est inadapté, besoin de "Ville".
 
----
+### Solution Technique
+#### A. Affichage Email
+- Récupérer l'objet `user` complet de `useAuth` (ou `supabase.auth.getUser()`).
+- Passer cet email au composant `AccountDetails` ou le récupérer via un hook.
+- Afficher le champ Email en `readOnly` et `disabled`.
 
-## 🏗️ Architecture Globale
-
-L'architecture repose sur un couplage fort entre **Supabase (Data & Auth)**, **Next.js (Frontend & API)** et **n8n (Orchestration & AI)**.
-
-```mermaid
-flowchart TB
-    subgraph Frontend["🖥️ Frontend (Next.js - VPS)"]
-        UI[Next.js App Router (TypeScript)]
-        API[API Routes (Auth Callback)]
-    end
-
-    subgraph Supabase["☁️ Supabase"]
-        DB[(PostgreSQL)]
-        Auth[Supabase Auth]
-        Vault[🔐 Vault (Secrets)]
-        RLS[Row Level Security]
-    end
-
-    subgraph N8N["⚙️ n8n (VPS Docker)"]
-        Cron[⏰ Cron 8h00]
-        Scraper[📰 Scraping HTTP]
-        LLM[🤖 Gemini API]
-    end
-
-    UI --> Auth
-    Auth --> DB
-    UI --> DB
-    DB --> Vault
-    Cron --> DB
-    
-    DB --> Scraper
-    Scraper --> LLM
-    LLM --> DB
+#### B. RLS Policies (`public.profiles`)
+Mettre à jour la politique PostgreSQL pour permettre l'update à l'utilisateur lui-même :
+```sql
+CREATE POLICY "Users can update own profile"
+ON public.profiles FOR UPDATE
+USING (auth.uid() = id);
 ```
 
----
+#### C. Champs Formulaire
+- Renommer le label "State/Region" en "Ville".
+- S'assurer que le champ mappe vers `city` ou une colonne JSON appropriée dans la DB.
 
-## 🛠️ Stack Technique
+## 2. Internationalisation (i18n)
+### Objectif
+Permettre le switch Français 🇫🇷 / Anglais 🇬🇧.
 
-| Composant | Technologie | Rôle |
-|-----------|-------------|------|
-| **Frontend** | **Next.js 14+ (App Router)** | Interface utilisateur réactive, SSR. |
-| **Langage** | **TypeScript** | Robustesse et typage E2E avec Supabase. |
-| **UI Library** | **Shadcn UI + Tailwind** | Design system pro et rapide. |
-| **Database** | **Supabase (PostgreSQL)** | Stockage relationnel, RLS, Realtime. |
-| **Auth** | **Supabase Auth** | Gestion utilisateurs (Email/Password). |
-| **Secrets** | **Supabase Vault** | Stockage chiffré des tokens LinkedIn. |
-| **Orchestrator** | **n8n (Self-hosted)** | Logique métier, Scraping, IA. |
-| **AI Model** | **Google Gemini** | Génération de résumés et posts LinkedIn. |
-| **Deploy** | **VPS Docker + Traefik** | Hébergement unifié (Frontend + n8n). |
+### Architecture Technique
+1. **Dictionnaires de traduction** :
+   - Créer `src/i18n/locales/fr.ts` et `en.ts`.
+   - Structure JSON : `{ sidebar: { dashboard: "Tableau de bord" }, account: { ... } }`
 
----
+2. **Context Provider** :
+   - Créer `LanguageContext.tsx`
+   - État global `language` ('fr' | 'en').
+   - Persistance dans `localStorage`.
 
-## 🗄️ Schéma de Base de Données
+3. **Custom Hook `useLanguage`** :
+   - Expose la fonction `t(key)` pour traduire les textes.
 
-### `public.profiles`
-Extension de la table `auth.users`.
-- `id` (UUID, PK, FK auth.users)
-- `full_name` (Text)
-- `avatar_url` (Text)
-- `linkedin_user_id` (Text)
-- `created_at` / `updated_at`
+### Étapes d'Implémentation
+1.  Créer la structure de fichiers i18n.
+2.  Implémenter le Provider et le Hook.
+3.  Wrapper l'application (`_app.tsx` ou `layout.tsx`) avec `LanguageProvider`.
+4.  Remplacer les textes "en dur" par `{t('key')}` dans :
+    - `Sidebar` (Menu de gauche)
+    - `AccountDetails` (Formulaires)
 
-### `public.sources`
-Flux à surveiller.
-- `id` (UUID, PK)
-- `user_id` (UUID, FK profiles)
-- `name` (Text)
-- `url` (Text)
-- `source_type` (Enum: 'rss', 'website')
-- `is_active` (Boolean)
-- `last_checked_at` (Timestamp)
-
-### `public.articles`
-Contenu curé et généré.
-- `id` (UUID, PK)
-- `user_id` (UUID, FK profiles)
-- `source_id` (UUID, FK sources)
-- `source_url` (Text)
-- `title` (Text)
-- `original_content` (Text)
-- `linkedin_draft` (Text) - **Généré par Gemini**
-- `status` (Enum: 'to_process', 'processing', 'draft_ready', 'approved', 'published', 'error')
-- `error_message` (Text)
-
----
-
-## 🔒 Sécurité & Tokens
-
-### LinkedIn OAuth
-Le flux OAuth 2.0 est géré par **Next.js API Routes** pour sécuriser le `client_secret`.
-1. User clique "Connecter LinkedIn".
-2. Redirection vers LinkedIn Auth.
-3. Callback vers `/api/auth/linkedin/callback`.
-4. Échange Code → Tokens.
-5. Stockage des tokens dans **Supabase Vault** via fonction RPC `store_linkedin_tokens`.
-
-### RLS (Row Level Security)
-Toutes les tables ont RLS activé.
-- `auth.uid() = user_id` : Un utilisateur ne voit et ne modifie que SES données.
-
----
-
-## 🚀 Stratégie de Déploiement
-
-Déploiement sur VPS via Docker Compose, derrière Traefik (déjà en place sur le VPS).
-
-```yaml
-# docker-compose.yml
-services:
-  jurisbot-frontend:
-    build: .
-    environment:
-      - NEXT_PUBLIC_SUPABASE_URL=...
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.jurisbot.rule=Host(`jurisbot.ton-domaine.com`)"
-```
+## 3. Plan de Vérification
+### Vérification Manuelle
+1.  **Login** : Se connecter avec un compte existant.
+2.  **Profil** : Aller sur `/account-settings`.
+    - Vérifier que l'email est visible et grisé.
+    - Modifier "Nom" et "Ville" -> "Sauvegarder". -> Vérifier "Saved successfully" toast.
+    - Recharger la page -> Vérifier persistence.
+3.  **Langue** :
+    - Changer un selector de langue (à créer dans le Header ou Settings).
+    - Vérifier que le menu change instantanément de "Dashboard" à "Tableau de bord".

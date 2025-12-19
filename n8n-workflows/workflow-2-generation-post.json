@@ -1,0 +1,262 @@
+{
+    "name": "Génération Post LinkedIn - JurisBot",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "generate-post",
+                "responseMode": "responseNode",
+                "options": {
+                    "rawBody": false
+                }
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "position": [
+                180,
+                300
+            ],
+            "webhookId": "generate-post",
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "tableId": "articles",
+                "matchType": "id",
+                "id": "={{ $json.body.article_id }}"
+            },
+            "id": "get-article",
+            "name": "Récupérer article",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                400,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "tableId": "tags",
+                "matchType": "id",
+                "id": "={{ $json.detected_tag_id }}"
+            },
+            "id": "get-tag",
+            "name": "Récupérer tag",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                620,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "models/gemini-2.0-flash"
+                },
+                "messages": {
+                    "values": [
+                        {
+                            "content": "Tu es un expert en personal branding juridique sur LinkedIn avec 10 ans d'expérience.\n\nRédige un post LinkedIn percutant à partir de cet article juridique.\n\n**Ton demandé**: {{ $('Webhook').item.json.body.tone || 'professionnel' }}\n\n**Catégorie**: {{ $json.name || 'Divers' }}\n\n**Article à transformer**:\nTitre: {{ $('Récupérer article').item.json.title }}\nContenu: {{ $('Récupérer article').item.json.original_content }}\n\n**Structure obligatoire du post**:\n1. HOOK (phrase d'accroche percutante de 1-2 lignes qui donne envie de lire)\n2. CORPS (3-4 paragraphes courts et aérés, avec des émojis pertinents)\n3. CALL-TO-ACTION (question ou invitation à commenter)\n4. 5 hashtags pertinents (juridique + secteur)\n\n**Styles selon le ton**:\n- professionnel: factuel, expertise affirmée, crédibilité\n- pedagogique: vulgarisation, accessible, explicatif\n- humoristique: léger, anecdotes, ton décalé\n- polemique: provocateur, débat, prise de position forte\n\nRéponds UNIQUEMENT avec le post LinkedIn prêt à copier-coller, rien d'autre. Pas d'introduction ni d'explication."
+                        }
+                    ]
+                },
+                "options": {
+                    "temperature": 0.7
+                }
+            },
+            "id": "gemini-write",
+            "name": "Gemini - Rédiger post",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "position": [
+                840,
+                300
+            ],
+            "credentials": {
+                "googleGeminiApi": {
+                    "id": "VOTRE_CREDENTIAL_GEMINI",
+                    "name": "Google Gemini"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "articles",
+                "matchType": "id",
+                "id": "={{ $('Webhook').item.json.body.article_id }}",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "linkedin_draft",
+                            "fieldValue": "={{ $json.text || $json.output }}"
+                        },
+                        {
+                            "fieldId": "status",
+                            "fieldValue": "draft_ready"
+                        }
+                    ]
+                }
+            },
+            "id": "update-article",
+            "name": "Mettre à jour article",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                1060,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"article_id\": \"{{ $('Webhook').item.json.body.article_id }}\",\n  \"tone\": \"{{ $('Webhook').item.json.body.tone || 'professionnel' }}\",\n  \"draft\": {{ JSON.stringify($('Gemini - Rédiger post').item.json.text || $('Gemini - Rédiger post').item.json.output) }},\n  \"status\": \"draft_ready\"\n}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "respond",
+            "name": "Répondre au webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "position": [
+                1280,
+                300
+            ],
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "{\n  \"success\": false,\n  \"error\": \"Article non trouvé ou erreur de traitement\"\n}",
+                "options": {
+                    "responseCode": 400,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "error-response",
+            "name": "Erreur",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "position": [
+                620,
+                500
+            ],
+            "typeVersion": 1
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Récupérer article",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Récupérer article": {
+            "main": [
+                [
+                    {
+                        "node": "Récupérer tag",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Récupérer tag": {
+            "main": [
+                [
+                    {
+                        "node": "Gemini - Rédiger post",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini - Rédiger post": {
+            "main": [
+                [
+                    {
+                        "node": "Mettre à jour article",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mettre à jour article": {
+            "main": [
+                [
+                    {
+                        "node": "Répondre au webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "timezone": "Europe/Paris",
+        "saveManualExecutions": true,
+        "executionOrder": "v1"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "linkedin"
+        },
+        {
+            "name": "generation"
+        },
+        {
+            "name": "webhook"
+        }
+    ]
+}

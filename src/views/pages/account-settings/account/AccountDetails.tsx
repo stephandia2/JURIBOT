@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 // React Imports
 import { useState, useEffect } from 'react'
 import type { ChangeEvent } from 'react'
 
 // MUI Imports
-import Grid from '@mui/material/Grid2'
+import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
@@ -15,32 +15,32 @@ import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
 
+// Supabase Imports
+import type { User } from '@supabase/supabase-js'
+
+import { createClient } from '@/utils/supabase'
+
 // Component Imports
 import CustomTextField from '@core/components/mui/TextField'
-
-// Supabase Imports
-import { createClient } from '@/utils/supabase'
-import type { User } from '@supabase/supabase-js'
 
 // Context Imports
 import { useLanguage } from '@/contexts/LanguageContext'
 
 type Data = {
-  firstName: string
-  lastName: string
-  email: string
-  organization: string
-  phoneNumber: string
-  address: string
-  state: string
-  zipCode: string
-  country: string
-  language: string // Changed to single string
-  timezone: string
+  firstName: string;
+  lastName: string;
+  email: string;
+  organization: string;
+  phoneNumber: string;
+  address: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  language: string;
+  timezone: string;
   currency: string
 }
 
-// Vars
 const initialData: Data = {
   firstName: '',
   lastName: '',
@@ -51,16 +51,14 @@ const initialData: Data = {
   state: '',
   zipCode: '',
   country: '',
-  language: 'Français', // Default single value
+  language: 'Francais',
   timezone: '',
   currency: 'eur'
 }
 
-// Only French and English as requested
-const languageData = ['Français', 'Anglais']
+const languageData = ['Francais', 'Anglais']
 
 const AccountDetails = () => {
-  // States
   const [formData, setFormData] = useState<Data>(initialData)
   const [fileInput, setFileInput] = useState<string>('')
   const [imgSrc, setImgSrc] = useState<string>('')
@@ -75,24 +73,24 @@ const AccountDetails = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
+
       const {
         data: { user }
       } = await supabase.auth.getUser()
+
       if (user) {
         setUser(user)
-
-        // Setup initial avatar
         setImgSrc(user.user_metadata?.avatar_url || '/images/avatars/1.png')
 
-        // Fetch profile data
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        const profile = profileData as any
 
         let firstName = ''
         let lastName = ''
 
-        // Initialize from user metadata if available
         if (user.user_metadata?.full_name) {
           const names = user.user_metadata.full_name.split(' ')
+
           firstName = names[0] || ''
           lastName = names.slice(1).join(' ') || ''
         }
@@ -107,7 +105,7 @@ const AccountDetails = () => {
           state: '',
           zipCode: '',
           country: '',
-          language: 'Français',
+          language: 'Francais',
           timezone: '',
           currency: 'eur'
         }
@@ -115,6 +113,7 @@ const AccountDetails = () => {
         if (profile) {
           if (profile.full_name) {
             const names = profile.full_name.split(' ')
+
             firstName = names[0] || ''
             lastName = names.slice(1).join(' ') || ''
           }
@@ -127,14 +126,14 @@ const AccountDetails = () => {
           newFormData.state = profile.state || ''
           newFormData.zipCode = profile.zip_code || ''
           newFormData.country = profile.country || ''
-          // Handle existing language or default
-          newFormData.language = profile.language || 'Français'
+          newFormData.language = profile.language || 'Francais'
           newFormData.timezone = profile.timezone || ''
           newFormData.currency = profile.currency || 'eur'
         }
 
         setFormData(newFormData)
       }
+
       setLoading(false)
     }
 
@@ -151,11 +150,12 @@ const AccountDetails = () => {
 
     if (files && files.length !== 0 && user) {
       const selectedFile = files[0]
+
       reader.onload = () => setImgSrc(reader.result as string)
       reader.readAsDataURL(selectedFile)
 
-      // Upload to Supabase
       setUploading(true)
+
       try {
         const fileExt = selectedFile.name.split('.').pop()
         const fileName = `${user.id}-${Date.now()}.${fileExt}`
@@ -171,17 +171,14 @@ const AccountDetails = () => {
           data: { publicUrl }
         } = supabase.storage.from('avatars').getPublicUrl(filePath)
 
-        // Update auth metadata
         const { error: updateError } = await supabase.auth.updateUser({
           data: { avatar_url: publicUrl }
         })
 
         if (updateError) throw updateError
 
-        // Also update profiles table
         await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
 
-        // Dispatch event for header sync
         window.dispatchEvent(new Event('user:updated'))
 
         setMessage({ type: 'success', text: t.account.upload_success })
@@ -209,7 +206,6 @@ const AccountDetails = () => {
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim()
 
-      // 1. Update Profile Table
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: user.id,
         full_name: fullName,
@@ -219,7 +215,7 @@ const AccountDetails = () => {
         state: formData.state,
         zip_code: formData.zipCode,
         country: formData.country,
-        language: formData.language, // No longer an array
+        language: formData.language,
         timezone: formData.timezone,
         currency: formData.currency,
         updated_at: new Date().toISOString()
@@ -227,7 +223,6 @@ const AccountDetails = () => {
 
       if (profileError) throw profileError
 
-      // 2. Update Auth Metadata
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
@@ -238,7 +233,6 @@ const AccountDetails = () => {
 
       if (authError) throw authError
 
-      // Dispatch event for header sync
       window.dispatchEvent(new Event('user:updated'))
 
       setMessage({ type: 'success', text: t.account.success_update })
@@ -297,7 +291,7 @@ const AccountDetails = () => {
             </Alert>
           )}
           <Grid container spacing={6}>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.first_name}
@@ -306,7 +300,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('firstName', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.last_name}
@@ -315,7 +309,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('lastName', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.email}
@@ -325,16 +319,16 @@ const AccountDetails = () => {
                 helperText={t.account.email_helper}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.organization}
                 value={formData.organization}
-                placeholder='Ma Société'
+                placeholder='Ma Societe'
                 onChange={e => handleFormChange('organization', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.phone}
@@ -343,7 +337,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('phoneNumber', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.address}
@@ -352,7 +346,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('address', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 label={t.account.ville}
@@ -361,7 +355,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('state', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 fullWidth
                 type='text'
@@ -371,7 +365,7 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('zipCode', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 select
                 fullWidth
@@ -380,14 +374,13 @@ const AccountDetails = () => {
                 onChange={e => handleFormChange('country', e.target.value)}
               >
                 <MenuItem value='france'>France</MenuItem>
-                <MenuItem value='usa'>États-Unis</MenuItem>
+                <MenuItem value='usa'>Etats-Unis</MenuItem>
                 <MenuItem value='uk'>Royaume-Uni</MenuItem>
                 <MenuItem value='germany'>Allemagne</MenuItem>
                 <MenuItem value='australia'>Australie</MenuItem>
               </CustomTextField>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              {/* Single Select Language */}
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 select
                 fullWidth
@@ -402,7 +395,7 @@ const AccountDetails = () => {
                 ))}
               </CustomTextField>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 select
                 fullWidth
@@ -415,12 +408,12 @@ const AccountDetails = () => {
               >
                 <MenuItem value='gmt-12'>(GMT-12:00) International Date Line West</MenuItem>
                 <MenuItem value='gmt-01'>(GMT+01:00) Paris, Bruxelles, Copenhague, Madrid</MenuItem>
-                <MenuItem value='gmt-00'>(GMT+00:00) Londres, Dublin, Édimbourg</MenuItem>
-                <MenuItem value='gmt-05'>(GMT-05:00) Heure de l'Est (US & Canada)</MenuItem>
-                <MenuItem value='gmt-08'>(GMT-08:00) Heure du Pacifique (US & Canada)</MenuItem>
+                <MenuItem value='gmt-00'>(GMT+00:00) Londres, Dublin, Edimbourg</MenuItem>
+                <MenuItem value='gmt-05'>(GMT-05:00) Heure de lEst (US and Canada)</MenuItem>
+                <MenuItem value='gmt-08'>(GMT-08:00) Heure du Pacifique (US and Canada)</MenuItem>
               </CustomTextField>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid item xs={12} sm={6}>
               <CustomTextField
                 select
                 fullWidth
@@ -428,12 +421,12 @@ const AccountDetails = () => {
                 value={formData.currency}
                 onChange={e => handleFormChange('currency', e.target.value)}
               >
-                <MenuItem value='eur'>EUR (€)</MenuItem>
+                <MenuItem value='eur'>EUR (Euro)</MenuItem>
                 <MenuItem value='usd'>USD ($)</MenuItem>
-                <MenuItem value='gbp'>GBP (£)</MenuItem>
+                <MenuItem value='gbp'>GBP (Pound)</MenuItem>
               </CustomTextField>
             </Grid>
-            <Grid size={{ xs: 12 }} className='flex gap-4 flex-wrap'>
+            <Grid item xs={12} className='flex gap-4 flex-wrap'>
               <Button variant='contained' type='submit' disabled={loading}>
                 {loading ? t.common.saving : t.common.save}
               </Button>

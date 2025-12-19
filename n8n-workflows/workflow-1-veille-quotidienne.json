@@ -1,0 +1,621 @@
+{
+    "name": "Veille Juridique Quotidienne - JurisBot",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 * * * *"
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Toutes les heures",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "position": [
+                180,
+                300
+            ],
+            "typeVersion": 1.1
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "user_preferences",
+                "returnAll": true,
+                "filterType": "string",
+                "filterString": "email_digest_enabled=eq.true"
+            },
+            "id": "get-users-with-email",
+            "name": "Utilisateurs avec email activé",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                400,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $now.format('HH:00:00') }}",
+                            "value2": "={{ $json.digest_time }}",
+                            "operation": "equals"
+                        }
+                    ]
+                }
+            },
+            "id": "filter-by-time",
+            "name": "Filtrer par heure",
+            "type": "n8n-nodes-base.filter",
+            "position": [
+                620,
+                300
+            ],
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-users",
+            "name": "Pour chaque utilisateur",
+            "type": "n8n-nodes-base.splitInBatches",
+            "position": [
+                840,
+                300
+            ],
+            "typeVersion": 3
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "sources",
+                "returnAll": true,
+                "filterType": "string",
+                "filterString": "user_id=eq.{{ $json.id }}&is_active=eq.true"
+            },
+            "id": "get-user-sources",
+            "name": "Sources actives de l'utilisateur",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                1060,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.url }}"
+            },
+            "id": "rss-read",
+            "name": "Lire flux RSS",
+            "type": "n8n-nodes-base.rssFeedRead",
+            "position": [
+                1280,
+                300
+            ],
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "user_tags",
+                "returnAll": true,
+                "filterType": "string",
+                "filterString": "user_id=eq.{{ $('Pour chaque utilisateur').item.json.id }}"
+            },
+            "id": "get-user-tags",
+            "name": "Tags de l'utilisateur",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                1280,
+                500
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "tags",
+                "returnAll": true
+            },
+            "id": "get-all-tags",
+            "name": "Liste des tags",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                1280,
+                700
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "mergeByFields": {
+                    "values": []
+                },
+                "combinationMode": "mergeByPosition",
+                "options": {}
+            },
+            "id": "merge-data",
+            "name": "Combiner données",
+            "type": "n8n-nodes-base.merge",
+            "position": [
+                1500,
+                400
+            ],
+            "typeVersion": 2.1
+        },
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "models/gemini-2.0-flash"
+                },
+                "messages": {
+                    "values": [
+                        {
+                            "content": "Tu es un expert juridique. Analyse cet article et détermine son tag principal parmi cette liste: Droit du travail, Droit fiscal, Droit des sociétés, Droit pénal, Droit civil, Droit immobilier, Droit de la famille, Propriété intellectuelle, Divers.\n\nArticle:\nTitre: {{ $json.title }}\nContenu: {{ $json.contentSnippet || $json.content || $json.description }}\n\nRéponds UNIQUEMENT au format JSON suivant (rien d'autre):\n{\n  \"tag\": \"Le nom du tag\",\n  \"resume\": \"Résumé en 2-3 phrases maximum\",\n  \"mots_cles\": [\"mot1\", \"mot2\", \"mot3\"]\n}"
+                        }
+                    ]
+                },
+                "options": {
+                    "temperature": 0.3
+                }
+            },
+            "id": "gemini-analyze",
+            "name": "Gemini - Analyser article",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "position": [
+                1720,
+                300
+            ],
+            "credentials": {
+                "googleGeminiApi": {
+                    "id": "VOTRE_CREDENTIAL_GEMINI",
+                    "name": "Google Gemini"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parser la réponse Gemini\nconst geminiResponse = $input.first().json.text || $input.first().json.output;\nlet parsed;\n\ntry {\n  // Extraire le JSON de la réponse\n  const jsonMatch = geminiResponse.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    parsed = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('No JSON found');\n  }\n} catch (e) {\n  // Fallback si parsing échoue\n  parsed = {\n    tag: 'Divers',\n    resume: geminiResponse.substring(0, 200),\n    mots_cles: []\n  };\n}\n\n// Récupérer les données de l'article source\nconst article = $('Lire flux RSS').first().json;\nconst userId = $('Pour chaque utilisateur').first().json.id;\nconst userTags = $('Tags de l\\'utilisateur').all().map(i => i.json);\nconst allTags = $('Liste des tags').all().map(i => i.json);\n\n// Trouver l'ID du tag détecté\nconst detectedTagName = parsed.tag || 'Divers';\nconst detectedTag = allTags.find(t => t.name === detectedTagName) || allTags.find(t => t.name === 'Divers');\n\n// Vérifier si l'utilisateur a ce tag dans ses préférences\nconst userHasTag = userTags.some(ut => ut.tag_id === detectedTag.id);\n\n// Si pas de tags configurés, on prend tout\nconst shouldInsert = userTags.length === 0 || userHasTag || detectedTag.name === 'Divers';\n\nreturn {\n  json: {\n    title: article.title,\n    original_content: article.contentSnippet || article.content || article.description,\n    linkedin_draft: parsed.resume,\n    source_url: article.link,\n    user_id: userId,\n    detected_tag_id: detectedTag ? detectedTag.id : null,\n    detected_tag_name: detectedTagName,\n    detected_tag_color: detectedTag ? detectedTag.color : '#6B7280',\n    status: 'to_process',\n    should_insert: shouldInsert,\n    mots_cles: parsed.mots_cles\n  }\n};"
+            },
+            "id": "code-parse",
+            "name": "Parser réponse Gemini",
+            "type": "n8n-nodes-base.code",
+            "position": [
+                1940,
+                300
+            ],
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.should_insert }}",
+                            "value2": true,
+                            "operation": "equals"
+                        }
+                    ]
+                }
+            },
+            "id": "filter-insert",
+            "name": "Filtrer articles à insérer",
+            "type": "n8n-nodes-base.filter",
+            "position": [
+                2160,
+                300
+            ],
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "operation": "create",
+                "tableId": "articles",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "title",
+                            "fieldValue": "={{ $json.title }}"
+                        },
+                        {
+                            "fieldId": "original_content",
+                            "fieldValue": "={{ $json.original_content }}"
+                        },
+                        {
+                            "fieldId": "linkedin_draft",
+                            "fieldValue": "={{ $json.linkedin_draft }}"
+                        },
+                        {
+                            "fieldId": "source_url",
+                            "fieldValue": "={{ $json.source_url }}"
+                        },
+                        {
+                            "fieldId": "user_id",
+                            "fieldValue": "={{ $json.user_id }}"
+                        },
+                        {
+                            "fieldId": "detected_tag_id",
+                            "fieldValue": "={{ $json.detected_tag_id }}"
+                        },
+                        {
+                            "fieldId": "status",
+                            "fieldValue": "to_process"
+                        }
+                    ]
+                }
+            },
+            "id": "insert-article",
+            "name": "Insérer article dans Supabase",
+            "type": "n8n-nodes-base.supabase",
+            "position": [
+                2380,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "VOTRE_CREDENTIAL_SUPABASE",
+                    "name": "Supabase JurisBot"
+                }
+            },
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "aggregate": "aggregateAllItemData",
+                "destinationFieldName": "articles",
+                "options": {}
+            },
+            "id": "aggregate-articles",
+            "name": "Agréger articles",
+            "type": "n8n-nodes-base.aggregate",
+            "position": [
+                2600,
+                300
+            ],
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.articles.length }}",
+                            "value2": 0,
+                            "operation": "larger"
+                        }
+                    ]
+                }
+            },
+            "id": "check-has-articles",
+            "name": "A des articles ?",
+            "type": "n8n-nodes-base.if",
+            "position": [
+                2820,
+                300
+            ],
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "jsCode": "// Générer le contenu HTML de l'email\nconst articles = $input.first().json.articles;\nconst userName = $('Pour chaque utilisateur').first().json.full_name || 'Cher utilisateur';\nconst today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\n// Citations juridiques pour le mot du jour\nconst citations = [\n  { texte: \"La justice sans la force est impuissante, la force sans la justice est tyrannique.\", auteur: \"Pascal\" },\n  { texte: \"Là où il n'y a pas de loi, il n'y a pas de liberté.\", auteur: \"John Locke\" },\n  { texte: \"Le droit est la plus puissante des écoles de l'imagination.\", auteur: \"Jean Giraudoux\" },\n  { texte: \"La loi doit être comme la mort, qui n'épargne personne.\", auteur: \"Montesquieu\" },\n  { texte: \"Un peuple prêt à sacrifier un peu de liberté pour un peu de sécurité ne mérite ni l'une ni l'autre.\", auteur: \"Benjamin Franklin\" },\n  { texte: \"La justice est la vérité en action.\", auteur: \"Joseph Joubert\" },\n  { texte: \"Le droit est l'ensemble des conditions qui permettent à la liberté de chacun de s'accorder avec la liberté de tous.\", auteur: \"Kant\" }\n];\nconst motDuJour = citations[Math.floor(Math.random() * citations.length)];\n\n// Générer le HTML des articles\nlet articlesHtml = '';\nfor (const article of articles) {\n  articlesHtml += `\n    <tr>\n      <td style=\"padding: 20px; border-bottom: 1px solid #e5e7eb;\">\n        <div style=\"margin-bottom: 8px;\">\n          <span style=\"background-color: ${article.detected_tag_color || '#6366F1'}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;\">\n            ${article.detected_tag_name || 'Divers'}\n          </span>\n        </div>\n        <h3 style=\"margin: 0 0 10px 0; color: #1f2937; font-size: 18px;\">${article.title}</h3>\n        <p style=\"margin: 0 0 15px 0; color: #4b5563; font-size: 14px; line-height: 1.5;\">${article.linkedin_draft}</p>\n        <a href=\"${article.source_url}\" style=\"color: #2563eb; text-decoration: none; font-size: 14px; font-weight: 500;\">🔗 Lire la source →</a>\n      </td>\n    </tr>\n  `;\n}\n\nconst html = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n</head>\n<body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f3f4f6; padding: 40px 20px;\">\n    <tr>\n      <td align=\"center\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n          <!-- Header -->\n          <tr>\n            <td style=\"background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;\">\n              <h1 style=\"margin: 0; color: white; font-size: 28px;\">📰 JurisBot</h1>\n              <p style=\"margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;\">Votre veille juridique du ${today}</p>\n            </td>\n          </tr>\n          \n          <!-- Mot du jour -->\n          <tr>\n            <td style=\"padding: 30px; background-color: #f8fafc; border-bottom: 1px solid #e5e7eb;\">\n              <h2 style=\"margin: 0 0 15px 0; color: #1f2937; font-size: 16px;\">💡 Mot du jour</h2>\n              <blockquote style=\"margin: 0; padding: 15px 20px; background-color: white; border-left: 4px solid #2563eb; border-radius: 0 8px 8px 0;\">\n                <p style=\"margin: 0 0 10px 0; color: #374151; font-style: italic; font-size: 15px;\">\"${motDuJour.texte}\"</p>\n                <p style=\"margin: 0; color: #6b7280; font-size: 13px;\">— ${motDuJour.auteur}</p>\n              </blockquote>\n            </td>\n          </tr>\n          \n          <!-- Articles -->\n          <tr>\n            <td style=\"padding: 30px 30px 10px 30px;\">\n              <h2 style=\"margin: 0; color: #1f2937; font-size: 18px;\">📚 Vos articles du jour (${articles.length} nouveau${articles.length > 1 ? 'x' : ''})</h2>\n            </td>\n          </tr>\n          <tr>\n            <td>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                ${articlesHtml}\n              </table>\n            </td>\n          </tr>\n          \n          <!-- CTA Button -->\n          <tr>\n            <td style=\"padding: 30px; text-align: center;\">\n              <a href=\"https://app.jurisbot.fr/veille/flux\" style=\"display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;\">🚀 Accéder au Dashboard</a>\n            </td>\n          </tr>\n          \n          <!-- Footer -->\n          <tr>\n            <td style=\"padding: 20px 30px; background-color: #f8fafc; border-radius: 0 0 12px 12px; text-align: center; border-top: 1px solid #e5e7eb;\">\n              <p style=\"margin: 0; color: #9ca3af; font-size: 12px;\">JurisBot - Votre assistant de veille juridique</p>\n              <p style=\"margin: 5px 0 0 0; color: #9ca3af; font-size: 11px;\">Pour modifier vos préférences, rendez-vous dans les paramètres de votre compte.</p>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n`;\n\nreturn {\n  json: {\n    html: html,\n    articleCount: articles.length,\n    subject: `📰 JurisBot - ${articles.length} nouvel${articles.length > 1 ? 'les' : ''} article${articles.length > 1 ? 's' : ''} juridique${articles.length > 1 ? 's' : ''}`\n  }\n};"
+            },
+            "id": "generate-email-html",
+            "name": "Générer HTML email",
+            "type": "n8n-nodes-base.code",
+            "position": [
+                3040,
+                200
+            ],
+            "typeVersion": 2
+        },
+        {
+            "parameters": {
+                "fromEmail": "noreply@jurisbot.fr",
+                "toEmail": "={{ $('Pour chaque utilisateur').item.json.email || 'test@example.com' }}",
+                "subject": "={{ $json.subject }}",
+                "emailType": "html",
+                "html": "={{ $json.html }}",
+                "options": {
+                    "replyTo": "contact@jurisbot.fr"
+                }
+            },
+            "id": "send-email",
+            "name": "Envoyer email Gmail",
+            "type": "n8n-nodes-base.emailSend",
+            "position": [
+                3260,
+                200
+            ],
+            "credentials": {
+                "smtp": {
+                    "id": "VOTRE_CREDENTIAL_GMAIL_SMTP",
+                    "name": "Gmail JurisBot"
+                }
+            },
+            "typeVersion": 2
+        },
+        {
+            "parameters": {},
+            "id": "no-articles",
+            "name": "Pas d'articles",
+            "type": "n8n-nodes-base.noOp",
+            "position": [
+                3040,
+                400
+            ],
+            "typeVersion": 1
+        }
+    ],
+    "connections": {
+        "Toutes les heures": {
+            "main": [
+                [
+                    {
+                        "node": "Utilisateurs avec email activé",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Utilisateurs avec email activé": {
+            "main": [
+                [
+                    {
+                        "node": "Filtrer par heure",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filtrer par heure": {
+            "main": [
+                [
+                    {
+                        "node": "Pour chaque utilisateur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pour chaque utilisateur": {
+            "main": [
+                [
+                    {
+                        "node": "Sources actives de l'utilisateur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Sources actives de l'utilisateur": {
+            "main": [
+                [
+                    {
+                        "node": "Lire flux RSS",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Lire flux RSS": {
+            "main": [
+                [
+                    {
+                        "node": "Tags de l'utilisateur",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Liste des tags",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Combiner données",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tags de l'utilisateur": {
+            "main": [
+                [
+                    {
+                        "node": "Combiner données",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Liste des tags": {
+            "main": [
+                [
+                    {
+                        "node": "Combiner données",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Combiner données": {
+            "main": [
+                [
+                    {
+                        "node": "Gemini - Analyser article",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini - Analyser article": {
+            "main": [
+                [
+                    {
+                        "node": "Parser réponse Gemini",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parser réponse Gemini": {
+            "main": [
+                [
+                    {
+                        "node": "Filtrer articles à insérer",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filtrer articles à insérer": {
+            "main": [
+                [
+                    {
+                        "node": "Insérer article dans Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Insérer article dans Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "Agréger articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Agréger articles": {
+            "main": [
+                [
+                    {
+                        "node": "A des articles ?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "A des articles ?": {
+            "main": [
+                [
+                    {
+                        "node": "Générer HTML email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Pas d'articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Générer HTML email": {
+            "main": [
+                [
+                    {
+                        "node": "Envoyer email Gmail",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Envoyer email Gmail": {
+            "main": [
+                [
+                    {
+                        "node": "Pour chaque utilisateur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pas d'articles": {
+            "main": [
+                [
+                    {
+                        "node": "Pour chaque utilisateur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "timezone": "Europe/Paris",
+        "saveManualExecutions": true,
+        "executionOrder": "v1"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "veille"
+        },
+        {
+            "name": "juridique"
+        },
+        {
+            "name": "email"
+        }
+    ]
+}

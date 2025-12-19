@@ -24,12 +24,40 @@
   - [x] Page "Brouillons" (Status: draft_ready) avec Éditeur
   - [x] Action "Valider / Publier"
 
-## ⚙️ Phase 4 : Backend Orchestration (n8n)
-- [ ] **Workflow Scraping** : HTTP Request sur `sources`
-- [ ] **Workflow IA** : Connecter Gemini pour résumer/drafter
-- [ ] **Boucle** : Mettre à jour Supabase (`draft_ready`)
+## 🛠️ Phase 3.5 : Améliorations & Localisation
+- [x] **Internationalisation (i18n)** :
+  - [x] Mettre en place le contexte de langue (Français/Anglais)
+  - [x] Traduire les composants clés (Sidebar, Settings, etc.)
+- [x] **Correctifs UI/UX** :
+  - [x] `AccountDetails` : Afficher l'email depuis Auth (lecture seule)
+  - [x] `AccountDetails` : Remplacer "Région/État" par "Ville"
+  - [x] **RLS** : Corriger les politiques `public.profiles` pour l'update
 
-## 🚀 Phase 5 : Déploiement
+## 🌟 Phase 4 : Nouvelles Fonctionnalités UI/UX
+- [x] **Menu & Navigation** :
+  - [x] Refondre la Sidebar (Sections: Veille, Éditeur, Outils, Config)
+  - [x] Ajouter l'icône "Cloche" (Notifications) dans le Header
+- [x] **Studio Editeur** (Nouvelle Page) :
+  - [x] Split View : Resume IA (Gauche) vs Preview LinkedIn (Droite)
+  - [x] Integration Editor : Choix du Ton (Pro/Fun...), Reformuler, Copier
+  - [x] Planification : DatePicker + Suggestions
+- [/] **Outils Avances** :
+  - [x] Page "Archives" (tableau avec filtres)
+  - [ ] Page "Statistiques LinkedIn" (Mockup ou Connecteur API)
+  - [ ] Page "Moyen de Paiement / Billing" (Si requis plus tard)
+
+## ⚙️ Phase 5 : Backend & Automatisation (n8n)
+- [ ] **Setup n8n** : 
+  - [ ] Déployer n8n (Docker)
+  - [ ] Configurer les Credentials (Supabase, Google Gemini, Banana.dev)
+- [ ] **Workflow 1 (Daily Digest)** :
+  - [ ] Trigger (Cron 7h) -> Scraping -> Gemini Summary -> Email Send
+- [ ] **Workflow 2 (Studio Média)** :
+  - [ ] Webhook : Réception prompt image + Ton
+  - [ ] Generation : Banana (Images) -> Merge PDF Node (Carrousel)
+  - [ ] Callback : Mise à jour Supabase (`media_assets`)
+
+## 🚀 Phase 6 : Déploiement
 - [ ] **Docker** : Créer `Dockerfile` optimisé pour Next.js
 - [ ] **VPS** : Configurer `docker-compose.yml` avec Traefik
 - [ ] **Production** : Build & Deploy
