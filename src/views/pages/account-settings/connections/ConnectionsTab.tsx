@@ -55,9 +55,11 @@ const ConnectionsTab = () => {
   useEffect(() => {
     const fetchConnections = async () => {
       setLoading(true)
+
       const {
         data: { user }
       } = await supabase.auth.getUser()
+
       if (user) {
         const { data } = await supabase.from('user_settings').select('connections').eq('user_id', user.id).single()
 
@@ -65,6 +67,7 @@ const ConnectionsTab = () => {
           setConnections(data.connections)
         }
       }
+
       setLoading(false)
     }
 
@@ -74,11 +77,13 @@ const ConnectionsTab = () => {
   const handleToggle = async (id: string, checked: boolean) => {
     // Optimistic update
     const newConnections = { ...connections, [id]: checked }
+
     setConnections(newConnections)
 
     const {
       data: { user }
     } = await supabase.auth.getUser()
+
     if (user) {
       const { error } = await supabase.from('user_settings').upsert({
         user_id: user.id,
@@ -88,6 +93,7 @@ const ConnectionsTab = () => {
 
       if (error) {
         setMessage({ type: 'error', text: t.common.error })
+
         // Revert
         setConnections(connections)
       }
@@ -97,6 +103,7 @@ const ConnectionsTab = () => {
   const handleSocialConnect = async (id: string) => {
     // Mock connecting logic
     const isConnected = !!connections[id]
+
     handleToggle(id, !isConnected)
   }
 
@@ -152,7 +159,9 @@ const ConnectionsTab = () => {
           <CardContent className='flex flex-col gap-4'>
             {socialAccountsList.map(account => {
               const isConnected = !!connections[account.id]
-              return (
+
+              
+return (
                 <div key={account.id} className='flex items-center justify-between'>
                   <div className='flex items-center gap-3'>
                     <Box className='flex items-center justify-center w-9 h-9 rounded bg-actionHover'>

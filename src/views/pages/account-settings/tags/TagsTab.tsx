@@ -14,7 +14,6 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
 
 // Icons
 import { IconPlus, IconX, IconTag, IconSearch } from '@tabler/icons-react'

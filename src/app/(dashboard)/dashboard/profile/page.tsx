@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase'
+
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -15,6 +16,8 @@ import Divider from '@mui/material/Divider'
 import Alert from '@mui/material/Alert'
 import IconButton from '@mui/material/IconButton'
 import CircularProgress from '@mui/material/CircularProgress'
+
+import { createClient } from '@/utils/supabase'
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -37,6 +40,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+
       if (user) {
         setUser(user)
         setAvatarUrl(user.user_metadata?.avatar_url || null)
@@ -47,8 +51,10 @@ export default function ProfilePage() {
           phone: user.user_metadata?.phone || ''
         })
       }
+
       setLoading(false)
     }
+
     getUser()
   }, [])
 
@@ -58,6 +64,7 @@ export default function ProfilePage() {
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+
     if (!file || !user) return
 
     setUploadingAvatar(true)
@@ -84,8 +91,10 @@ export default function ProfilePage() {
         } else {
           setMessage({ type: 'error', text: uploadError.message })
         }
+
         setUploadingAvatar(false)
-        return
+        
+return
       }
 
       // Get public URL
@@ -103,6 +112,7 @@ export default function ProfilePage() {
       } else {
         setAvatarUrl(publicUrl)
         setMessage({ type: 'success', text: 'Photo de profil mise à jour !' })
+
         // Broadcast update to other components
         window.dispatchEvent(new Event('user:updated'))
       }
@@ -130,6 +140,7 @@ export default function ProfilePage() {
     } else {
       setMessage({ type: 'success', text: 'Profil mis à jour avec succès !' })
     }
+
     setSaving(false)
   }
 

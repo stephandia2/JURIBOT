@@ -1,5 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -35,15 +36,19 @@ export async function middleware(request: NextRequest) {
   // Protected routes: redirect to login if not authenticated
   if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
+
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    
+return NextResponse.redirect(url)
   }
 
   // Redirect authenticated users away from login/register
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
     const url = request.nextUrl.clone()
+
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    
+return NextResponse.redirect(url)
   }
 
   return supabaseResponse

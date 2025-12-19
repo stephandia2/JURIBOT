@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase'
+
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
@@ -17,7 +17,9 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Paper from '@mui/material/Paper'
 
-import { Database } from '@/types/supabase'
+import { createClient } from '@/utils/supabase'
+
+import type { Database } from '@/types/supabase'
 
 type Source = Database['public']['Tables']['sources']['Row']
 
@@ -31,6 +33,7 @@ export default function SourcesPage() {
 
   const fetchSources = async () => {
     setLoading(true)
+
     const { data, error } = await supabase
       .from('sources')
       .select('*')
@@ -41,6 +44,7 @@ export default function SourcesPage() {
     } else {
       setSources(data || [])
     }
+
     setLoading(false)
   }
 
@@ -53,13 +57,15 @@ export default function SourcesPage() {
     if (!name || !url) return
 
     setAdding(true)
+
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       alert('You must be logged in')
       setAdding(false)
-      return
+      
+return
     }
 
     const { error } = await supabase.from('sources').insert({
@@ -77,6 +83,7 @@ export default function SourcesPage() {
       setUrl('')
       fetchSources()
     }
+
     setAdding(false)
   }
 
@@ -84,6 +91,7 @@ export default function SourcesPage() {
     if (!confirm('Are you sure you want to delete this source?')) return
 
     const { error } = await supabase.from('sources').delete().eq('id', id)
+
     if (error) {
       alert(error.message)
     } else {

@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase'
+
+import Link from 'next/link'
+
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -9,17 +11,20 @@ import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
-import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
+
+import { createClient } from '@/utils/supabase'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
+
   const [stats, setStats] = useState({
     sources: 0,
     toProcess: 0,
     drafts: 0,
     published: 0
   })
+
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -28,6 +33,7 @@ export default function DashboardPage() {
     const fetchData = async () => {
       // Get user
       const { data: { user } } = await supabase.auth.getUser()
+
       setUser(user)
 
       if (user) {

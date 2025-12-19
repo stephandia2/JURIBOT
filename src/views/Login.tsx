@@ -7,7 +7,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Supabase Imports
-import { createClient } from '@/utils/supabase'
 
 // MUI Imports
 import useMediaQuery from '@mui/material/useMediaQuery'
@@ -22,6 +21,8 @@ import Divider from '@mui/material/Divider'
 
 // Third-party Imports
 import classnames from 'classnames'
+
+import { createClient } from '@/utils/supabase'
 
 // Type Imports
 import type { SystemMode } from '@core/types'
@@ -130,10 +131,12 @@ const LoginV2 = ({ mode }: { mode: SystemMode }) => {
             onSubmit={async e => {
               e.preventDefault()
               setError(null)
+
               const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password
               })
+
               if (error) {
                 if (error.message === 'Invalid login credentials') {
                   setError('Identifiants incorrects')

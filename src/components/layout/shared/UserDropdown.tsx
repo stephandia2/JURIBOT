@@ -8,7 +8,6 @@ import type { MouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Supabase Imports
-import { createClient } from '@/utils/supabase'
 import type { User } from '@supabase/supabase-js'
 
 // MUI Imports
@@ -24,6 +23,8 @@ import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
 import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
+
+import { createClient } from '@/utils/supabase'
 
 // Hook Imports
 import { useSettings } from '@core/hooks/useSettings'
@@ -54,8 +55,10 @@ const UserDropdown = () => {
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+
       setUser(user)
     }
+
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -63,12 +66,14 @@ const UserDropdown = () => {
         setUser(session.user)
       } else {
         const { data: { user } } = await supabase.auth.getUser()
+
         setUser(user)
       }
     })
 
     const handleUserUpdate = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+
       setUser(user)
     }
 

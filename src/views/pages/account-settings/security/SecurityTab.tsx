@@ -43,11 +43,13 @@ const SecurityTab = () => {
 
     if (newPassword !== confirmPassword) {
       setMessage({ type: 'error', text: t.security.error_match })
+
       return
     }
 
     if (newPassword.length < 6) {
       setMessage({ type: 'error', text: t.security.error_length })
+
       return
     }
 

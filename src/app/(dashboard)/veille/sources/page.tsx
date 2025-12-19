@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase'
+
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -27,7 +27,9 @@ import DialogActions from '@mui/material/DialogActions'
 import TextField from '@mui/material/TextField'
 import Grid from '@mui/material/Grid'
 
-import { Database } from '@/types/supabase'
+import { createClient } from '@/utils/supabase'
+
+import type { Database } from '@/types/supabase'
 
 type Article = Database['public']['Tables']['articles']['Row']
 
@@ -44,6 +46,7 @@ export default function ArticlesPage() {
 
   const fetchArticles = async () => {
     setLoading(true)
+
     const { data, error } = await supabase
       .from('articles')
       .select('*')
@@ -54,6 +57,7 @@ export default function ArticlesPage() {
     } else {
       setArticles(data || [])
     }
+
     setLoading(false)
   }
 
@@ -70,7 +74,8 @@ export default function ArticlesPage() {
     if (tabValue === 'to_process') return article.status === 'to_process'
     if (tabValue === 'draft_ready') return article.status === 'draft_ready'
     if (tabValue === 'published') return article.status === 'published'
-    return true
+    
+return true
   })
 
   const getStatusChip = (status: string | null) => {
@@ -99,6 +104,7 @@ export default function ArticlesPage() {
     setProcessing(true)
 
     const updates: any = { status }
+
     if (status === 'published') {
       // Logic to actually publish would go here or be triggered by status change
       updates.linkedin_draft = draftContent
@@ -118,6 +124,7 @@ export default function ArticlesPage() {
       setArticles(articles.map(a => a.id === selectedArticle.id ? { ...a, ...updates } : a))
       setEditorOpen(false)
     }
+
     setProcessing(false)
   }
 

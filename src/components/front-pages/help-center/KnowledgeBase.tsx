@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'

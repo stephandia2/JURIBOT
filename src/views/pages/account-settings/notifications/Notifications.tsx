@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 
 // MUI Imports
+// MUI Imports
 import Card from '@mui/material/Card'
 import CardHeader from '@mui/material/CardHeader'
 import CardContent from '@mui/material/CardContent'
@@ -22,10 +23,10 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Switch from '@mui/material/Switch'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Divider from '@mui/material/Divider'
+import MenuItem from '@mui/material/MenuItem'
 
 // Component Imports
 import CustomTextField from '@core/components/mui/TextField'
-import MenuItem from '@mui/material/MenuItem'
 
 // Supabase Imports
 import { createClient } from '@/utils/supabase'
@@ -86,19 +87,22 @@ const NotificationsTab = () => {
   // Générer les options d'heures
   const timeOptions = Array.from({ length: 24 }, (_, i) => {
     const hour = i.toString().padStart(2, '0')
+
     return { value: `${hour}:00`, label: `${hour}:00` }
   })
 
   useEffect(() => {
     const fetchSettings = async () => {
       setLoading(true)
+
       const {
         data: { user }
       } = await supabase.auth.getUser()
+
       if (user) {
         // Récupérer les paramètres de notifications
         const { data: settingsData } = await supabase
-          .from('user_settings')
+          .from('user_settings' as any)
           .select('notifications')
           .eq('user_id', user.id)
           .single()
@@ -109,7 +113,7 @@ const NotificationsTab = () => {
 
         // Récupérer les préférences de veille
         const { data: veilleData } = await supabase
-          .from('user_preferences')
+          .from('user_preferences' as any)
           .select('email_digest_enabled, digest_time')
           .eq('id', user.id)
           .single()
@@ -121,10 +125,12 @@ const NotificationsTab = () => {
           })
         }
       }
+
       setLoading(false)
     }
 
     fetchSettings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleCheckboxChange = (type: NotificationType, channel: 'email' | 'browser' | 'app') => {
@@ -147,20 +153,21 @@ const NotificationsTab = () => {
   const handleSave = async () => {
     setMessage(null)
     setSaving(true)
+
     const {
       data: { user }
     } = await supabase.auth.getUser()
 
     if (user) {
       // Sauvegarder les paramètres de notifications
-      const { error: settingsError } = await supabase.from('user_settings').upsert({
+      const { error: settingsError } = await supabase.from('user_settings' as any).upsert({
         user_id: user.id,
         notifications: settings,
         updated_at: new Date().toISOString()
       })
 
       // Sauvegarder les préférences de veille
-      const { error: veilleError } = await supabase.from('user_preferences').upsert({
+      const { error: veilleError } = await supabase.from('user_preferences' as any).upsert({
         id: user.id,
         email_digest_enabled: veillePrefs.email_digest_enabled,
         digest_time: veillePrefs.digest_time + ':00',
@@ -173,6 +180,7 @@ const NotificationsTab = () => {
         setMessage({ type: 'success', text: t.notifications.success_save })
       }
     }
+
     setSaving(false)
   }
 

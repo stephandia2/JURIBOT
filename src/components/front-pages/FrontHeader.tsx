@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 
 // Supabase Imports
-import { createClient } from '@/utils/supabase'
 import type { User } from '@supabase/supabase-js'
+
+import { createClient } from '@/utils/supabase'
 
 // Component Imports
 import UserDropdown from '@components/layout/shared/UserDropdown'
@@ -31,8 +34,10 @@ export default function FrontHeader() {
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+
       setUser(user)
     }
+
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

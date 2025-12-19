@@ -94,6 +94,7 @@ const ForgotPassword = ({ mode }: { mode: SystemMode }) => {
         text: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.' 
       })
     }
+
     setLoading(false)
   }
 

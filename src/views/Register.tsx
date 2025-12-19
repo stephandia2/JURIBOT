@@ -7,7 +7,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Supabase Imports
-import { createClient } from '@/utils/supabase'
 
 // MUI Imports
 import useMediaQuery from '@mui/material/useMediaQuery'
@@ -22,6 +21,8 @@ import Divider from '@mui/material/Divider'
 
 // Third-party Imports
 import classnames from 'classnames'
+
+import { createClient } from '@/utils/supabase'
 
 // Type Imports
 import type { SystemMode } from '@core/types'
@@ -133,6 +134,7 @@ const Register = ({ mode }: { mode: SystemMode }) => {
               e.preventDefault()
               setError(null)
               setSuccess(null)
+
               const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -142,10 +144,12 @@ const Register = ({ mode }: { mode: SystemMode }) => {
                   }
                 }
               })
+
               if (error) {
                 setError(error.message)
               } else {
                 setSuccess('Inscription réussie ! Vérifiez votre email pour confirmer.')
+
                 // Optionally redirect or wait
                 // router.push('/login')
               }

@@ -1,6 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+
+import Link from 'next/link'
+
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
@@ -18,7 +21,6 @@ import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Chip from '@mui/material/Chip'
 
-import Link from 'next/link'
 
 const countries = ['France', 'Belgique', 'Suisse', 'Canada', 'Luxembourg']
 

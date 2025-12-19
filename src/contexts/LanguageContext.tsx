@@ -1,8 +1,11 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import type { ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react'
+
 import { createClient } from '@/utils/supabase'
-import { dictionaries, Language } from '@/utils/i18n'
+import type { Language } from '@/utils/i18n';
+import { dictionaries } from '@/utils/i18n'
 
 type LanguageContextType = {
   language: Language
@@ -18,6 +21,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchLanguage = async () => {
     const { data: { user } } = await supabase.auth.getUser()
+
     if (user) {
       const { data } = await supabase
         .from('profiles')
@@ -33,6 +37,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
           'French': 'fr',
           'English': 'en'
         }
+
         setLanguage(langMap[data.language] || 'fr')
       }
     }
@@ -47,7 +52,8 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     }
 
     window.addEventListener('user:updated', handleUserUpdate)
-    return () => window.removeEventListener('user:updated', handleUserUpdate)
+    
+return () => window.removeEventListener('user:updated', handleUserUpdate)
   }, [])
 
   const value = {
@@ -65,8 +71,11 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
 export const useLanguage = () => {
   const context = useContext(LanguageContext)
+
   if (context === undefined) {
     throw new Error('useLanguage must be used within a LanguageProvider')
   }
-  return context
+
+  
+return context
 }
